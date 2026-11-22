@@ -24,3 +24,8 @@
 
 ## 로컬 테스트
 ADMIN_PASSWORD 환경변수 설정 후 npm start (Windows PowerShell: $env:ADMIN_PASSWORD="충분히긴비밀번호"; npm start).
+
+
+### v0.7.7 참가자별 화면
+- 본인 기준 좌측 배치 및 대결 애니메이션 방향 통일
+- 최종 우승 / 탈락 상태 메시지 구분

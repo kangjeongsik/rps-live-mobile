@@ -1,6 +1,6 @@
 {
   "name": "rps-live-mobile",
-  "version": "0.7.5",
+  "version": "0.7.7",
   "private": true,
   "scripts": {
     "start": "node server.cjs"
