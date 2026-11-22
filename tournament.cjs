@@ -15,7 +15,25 @@ function state(){return {players:[...players.values()].map(publicPlayer),history
 function broadcast(){const line='data: '+JSON.stringify(state())+'\n\n';for(const s of streams){try{s.write(line)}catch{streams.delete(s)}}}
 function nextMatch(a,b){return {id:rand().slice(0,10),a,b,amove:null,bmove:null,winner:null,phase:b?'pending':'done',replays:0,autoA:false,autoB:false}}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=crypto.randomInt(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
-function start(){const entrants=shuffle([...players.values()].map(p=>p.id));if(entrants.length<2)throw Error('2명 이상 참가해야 합니다');for(const p of players.values())p.alive=true;const n=2**Math.floor(Math.log2(entrants.length));const prelim=entrants.length-n;const matches=[];for(let i=0;i<prelim*2;i+=2)matches.push(nextMatch(entrants[i],entrants[i+1]));for(let i=prelim*2;i<entrants.length;i+=2){if(prelim===0)matches.push(nextMatch(entrants[i],entrants[i+1]));else matches.push(nextMatch(entrants[i],null))}t.round=1;t.matches=shuffle(matches);t.history=[];t.champion=null;t.phase='ready';t.notice=`${entrants.length===2?'결승':'예선'} 시작 준비 · ${prelim}경기, 부전승 ${n-prelim}명`;t.deadline=0}
+function start(){
+ const entrants=shuffle([...players.values()].map(p=>p.id));
+ if(entrants.length<2)throw Error('2명 이상 참가해야 합니다');
+ for(const p of players.values())p.alive=true;
+ // A power-of-two field must always play directly: 2=>1, 4=>2, 8=>4 real matches.
+ // For other counts, only the minimum necessary entrants play a preliminary round.
+ const floorPower=2**Math.floor(Math.log2(entrants.length));
+ const prelim=entrants.length-floorPower;
+ const matches=[];
+ for(let i=0;i<prelim*2;i+=2)matches.push(nextMatch(entrants[i],entrants[i+1]));
+ if(prelim===0){
+  for(let i=0;i<entrants.length;i+=2)matches.push(nextMatch(entrants[i],entrants[i+1]));
+ }else{
+  for(let i=prelim*2;i<entrants.length;i++)matches.push(nextMatch(entrants[i],null));
+ }
+ t.round=1;t.matches=shuffle(matches);t.history=[];t.champion=null;t.phase='ready';
+ t.notice=`${entrants.length===2?'결승':'예선'} 시작 준비 · 실제 대결 ${prelim||entrants.length/2}경기, 부전승 ${prelim?floorPower-prelim:0}명`;
+ t.deadline=0;
+}
 function activeMatches(){return t.matches.filter(m=>m.phase==='active')}
 function openRound(){if(t.phase!=='ready')throw Error('라운드를 시작할 수 없습니다');const pending=t.matches.filter(m=>m.phase==='pending');if(!pending.length){advance();return}const sequential=t.matches.length<=2;const selected=sequential?[pending[0]]:pending;for(const m of selected){m.phase='active';m.amove=null;m.bmove=null;m.autoA=false;m.autoB=false}t.deadline=Date.now()+t.duration*1000;t.phase='playing';t.notice=sequential?`집중 중계 · ${t.matches.length===2?'4강':'결승'} ${t.matches.length===2?3-pending.length:1}번째 경기`:`${t.round}라운드 · ${selected.length}경기 동시 진행`;const epoch=++version;setTimeout(()=>{if(epoch===version&&t.phase==='playing'){applyDefaultRock();t.notice='잠시 후 대결 결과가 공개됩니다';broadcast()}},Math.max(0,t.duration-10)*1000+30);setTimeout(()=>{if(epoch===version&&t.phase==='playing'){finishRound();broadcast()}},t.duration*1000+120)}
 function applyDefaultRock(){if(t.phase!=='playing')return;let changed=false;for(const m of activeMatches()){if(!m.amove){m.amove='rock';m.autoA=true;changed=true}if(!m.bmove){m.bmove='rock';m.autoB=true;changed=true}}if(changed)broadcast()}
