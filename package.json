@@ -1,11 +1,14 @@
 {
   "name": "rps-live-mobile",
-  "version": "0.7.23",
+  "version": "0.7.28",
   "private": true,
   "scripts": {
     "start": "node server.cjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.13.3"
   }
 }

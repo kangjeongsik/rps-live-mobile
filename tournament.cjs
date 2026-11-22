@@ -13,6 +13,47 @@ const beats=(a,b)=>(a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||
 const players=new Map(),tokens=new Map(),codes=new Map(),streams=new Set();
 let seq=0,version=0,chat=[],chatEnabled=true,customNotice='';
 let autoMode=false,autoDelay=10,autoNextAt=0;
+// Production prize storage. DATABASE_URL is server-side only; never exposed to browsers.
+const {Pool}=require('pg');
+const prizePool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:true},max:5}):null;
+const PRIZE_TYPES={google:'구글 기프트카드 (1만원권)',valorant:'발로란트 선불카드 (1만원권)',kakao:'카카오 선물하기 상품권 (1만원권)',oliveyoung:'올리브영 기프트카드 (1만원권)'};
+let eventId=crypto.randomUUID();
+function requirePrizeDB(){if(!prizePool)throw Error('상품 지급 DB가 연결되지 않았습니다. DATABASE_URL을 설정하세요')}
+async function dbQuery(sql,params=[]){requirePrizeDB();return (await prizePool.query(sql,params)).rows}
+async function prizeSummary(){
+ const rows=await dbQuery('select type,count(*)::int as available from rps_prize_cards where award_id is null group by type');
+ return Object.entries(PRIZE_TYPES).map(([type,name])=>({type,name,available:rows.find(x=>x.type===type)?.available||0}));
+}
+function publicPrize(){return {enabled:!!prizePool,types:Object.entries(PRIZE_TYPES).map(([type,name])=>({type,name,available:null}))}}
+async function awardForChampion(){
+ const rows=await dbQuery(`select a.id,a.claimed_at,a.player_name,c.type,c.serial,c.pin
+ from rps_prize_awards a join rps_prize_cards c on c.id=a.card_id
+ where a.event_id=$1 and a.player_id=$2 limit 1`,[eventId,t.champion]);
+ return rows[0]||null;
+}
+function awardResponse(row){return row?{name:PRIZE_TYPES[row.type],serial:row.serial,pin:row.pin,claimedAt:Number(row.claimed_at)}:null}
+async function claimCard(type,p){
+ requirePrizeDB();
+ const client=await prizePool.connect();
+ try{
+  await client.query('BEGIN');
+  // Serialize claims for this event and winner, including concurrent requests.
+  await client.query('select pg_advisory_xact_lock(hashtext($1),hashtext($2))',[eventId,p.id]);
+  const existing=await client.query(`select a.id,a.claimed_at,c.type,c.serial,c.pin from rps_prize_awards a
+    join rps_prize_cards c on c.id=a.card_id where a.event_id=$1 and a.player_id=$2`,[eventId,p.id]);
+  if(existing.rows.length){await client.query('COMMIT');return {award:awardResponse(existing.rows[0]),already:true}}
+  const card=await client.query(`select id,type,serial,pin from rps_prize_cards
+    where type=$1 and award_id is null order by created_at,id for update skip locked limit 1`,[type]);
+  if(!card.rows.length){await client.query('ROLLBACK');return {error:'해당 상품의 미사용 재고가 없습니다'}}
+  const id=crypto.randomUUID(),claimedAt=Date.now();
+  await client.query(`insert into rps_prize_awards(id,event_id,player_id,player_name,card_id,claimed_at)
+    values($1,$2,$3,$4,$5,$6)`,[id,eventId,p.id,p.name,card.rows[0].id,claimedAt]);
+  await client.query('update rps_prize_cards set award_id=$1 where id=$2 and award_id is null',[id,card.rows[0].id]);
+  await client.query('COMMIT');
+  return {award:awardResponse({...card.rows[0],claimed_at:claimedAt}),already:false};
+ }catch(e){try{await client.query('ROLLBACK')}catch{}throw e}
+ finally{client.release()}
+}
 let t={mode:'nickname',history:[],phase:'lobby',round:0,matches:[],champion:null,deadline:0,duration:20,notice:'토너먼트 참가자를 모집 중입니다.'};
 function send(res,status,obj){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(obj))}
 const {isAdminSession}=require('./admin-session.cjs');
@@ -20,7 +61,7 @@ function authorized(req){if(isAdminSession(req))return true;const h=req.headers.
 function deny(res){res.writeHead(401,{'WWW-Authenticate':'Basic realm="RPS Tournament Admin"','Cache-Control':'no-store'});res.end('관리자 인증이 필요합니다')}
 function player(req){return players.get(tokens.get((req.headers.authorization||'').replace(/^Bearer /,'')))}
 function publicPlayer(p){return p?{id:p.id,name:maskProfanity(p.name),alive:p.alive}:null}
-function state(){const present=[...players.values()].filter(p=>!p.left);return {players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:t.phase,round:t.round,deadline:t.deadline,duration:t.duration,stage:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,roundType:stageLabel(t.matches)}}
+function state(){const present=[...players.values()].filter(p=>!p.left);return {players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:t.phase,round:t.round,deadline:t.deadline,duration:t.duration,stage:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,prize:publicPrize(),roundType:stageLabel(t.matches)}}
 function broadcast(){const line='data: '+JSON.stringify(state())+'\n\n';for(const s of streams){try{s.write(line)}catch{streams.delete(s)}}}
 function stageLabel(matches){const real=matches.filter(m=>!!m.b).length;const hasByes=matches.some(m=>!m.b);return hasByes?'예선':real===1?'결승':real===2?'4강':`${real*2}강`}
 function nextMatch(a,b){return {id:rand().slice(0,10),a,b,amove:null,bmove:null,winner:null,phase:b?'pending':'done',replays:0,autoA:false,autoB:false}}
@@ -58,14 +99,14 @@ function finishRound(){if(t.phase!=='playing')throw Error('진행 중인 경기�
  postSystemChat(`🏆 ${resultName(m.a)} vs ${resultName(m.b)} · 승자: ${resultName(m.winner)} · 다음 라운드 진출!`);
  const loser=m.winner===m.a?m.b:m.a;if(players.has(loser))players.get(loser).alive=false}t.deadline=0;t.phase='ready';t.notice=unresolved?`미완료 ${unresolved}경기 · 재진행 필요`:replays?'무승부 입니다. 잠시 후 재대결 진행합니다.':'경기 종료 · 다음 경기 준비';if(t.matches.every(m=>m.phase==='done'))advance();if(t.phase==='ready'&&autoMode)autoNextAt=Date.now()+autoDelay*1000}
 function advance(){t.history.push({round:t.round,roundType:stageLabel(t.matches),matches:t.matches.map(m=>({a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.amove,bmove:m.bmove}))});const winners=t.matches.map(m=>m.winner||(!m.b?m.a:null)).filter(Boolean);if(winners.length===1){t.champion=winners[0];t.phase='finished';autoNextAt=0;t.notice=`🏆 ${players.get(t.champion).name} 최종 우승!`;postSystemChat(`🏆 최종 우승: ${resultName(t.champion)}! 축하합니다!`);return}if(winners.length<2)throw Error('대진표에 진행할 참가자가 없습니다');t.round++;t.matches=[];for(let i=0;i<winners.length;i+=2)t.matches.push(nextMatch(winners[i],winners[i+1]||null));t.phase='ready';t.notice=`다음 라운드 준비 · ${winners.length}명 진출`}
-function reset(mode){autoMode=false;autoNextAt=0;customNotice='';++version;players.clear();tokens.clear();chat=[];seq=0;codes.clear();t={mode,history:[],phase:'lobby',round:0,matches:[],champion:null,deadline:0,duration:t.duration,notice:'새 토너먼트 참가 신청 중입니다.'}}
+function reset(mode){eventId=crypto.randomUUID();autoMode=false;autoNextAt=0;customNotice='';++version;players.clear();tokens.clear();chat=[];seq=0;codes.clear();t={mode,history:[],phase:'lobby',round:0,matches:[],champion:null,deadline:0,duration:t.duration,notice:'새 토너먼트 참가 신청 중입니다.'}}
 function readBody(req,res,cb){let raw='';req.on('data',chunk=>{raw+=chunk;if(raw.length>8192)req.destroy()});req.on('end',()=>{try{cb(JSON.parse(raw))}catch(e){if(!res.writableEnded)send(res,400,{error:e.message||'잘못된 요청'})}})}
 function handle(req,res,u){if(!u.pathname.startsWith('/tournament'))return false;
 if(req.method==='GET'&&u.pathname==='/tournament/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});res.write('data: '+JSON.stringify(state())+'\n\n');streams.add(res);req.on('close',()=>streams.delete(res));return true}
 if(req.method==='GET'&&u.pathname==='/tournament/admin'&&!authorized(req)){res.writeHead(302,{Location:'/admin-login?next=%2Ftournament%2Fadmin','Cache-Control':'no-store'});res.end();return true}
 if(req.method==='GET'&&['/tournament','/tournament/admin'].includes(u.pathname)){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(fs.readFileSync(path.join(__dirname,u.pathname==='/tournament'?'tournament.html':'tournament-admin.html')));return true}
 if(req.method!=='POST'||u.pathname!=='/tournament/api'){send(res,404,{error:'찾을 수 없습니다'});return true}
-readBody(req,res,b=>{const p=player(req);if(b.action==='join'){if(t.phase!=='lobby')return send(res,409,{error:'참가 신청이 마감되었습니다'});if(players.size>=200)return send(res,409,{error:'최대 200명까지 참가할 수 있습니다'});let name;if(t.mode==='verified'){const code=String(b.code||'').trim().toUpperCase();if(!codes.has(code)||codes.get(code))return send(res,403,{error:'사용할 수 없는 인증코드입니다'});name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return send(res,400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return send(res,409,{error:'이미 사용 중인 닉네임입니다'});codes.set(code,true)}else if(t.mode==='nickname'){name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return send(res,400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if(b.agree!==true)return send(res,400,{error:'참가 안내에 동의해야 합니다'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return send(res,409,{error:'이미 사용 중인 닉네임입니다'})}else name=`PLAYER ${String(seq+1).padStart(3,'0')}`;const id=`P${++seq}`,token=rand();players.set(id,{id,name,alive:true});tokens.set(token,id);broadcast();return send(res,200,{token,id,name})}
+readBody(req,res,async b=>{try{const p=player(req);if(b.action==='join'){if(t.phase!=='lobby')return send(res,409,{error:'참가 신청이 마감되었습니다'});if(players.size>=200)return send(res,409,{error:'최대 200명까지 참가할 수 있습니다'});let name;if(t.mode==='verified'){const code=String(b.code||'').trim().toUpperCase();if(!codes.has(code)||codes.get(code))return send(res,403,{error:'사용할 수 없는 인증코드입니다'});name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return send(res,400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return send(res,409,{error:'이미 사용 중인 닉네임입니다'});codes.set(code,true)}else if(t.mode==='nickname'){name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return send(res,400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if(b.agree!==true)return send(res,400,{error:'참가 안내에 동의해야 합니다'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return send(res,409,{error:'이미 사용 중인 닉네임입니다'})}else name=`PLAYER ${String(seq+1).padStart(3,'0')}`;const id=`P${++seq}`,token=rand();players.set(id,{id,name,alive:true});tokens.set(token,id);broadcast();return send(res,200,{token,id,name})}
 if(b.action==='resume')return p&&!p.left?send(res,200,{id:p.id,name:p.name,alive:p.alive}):send(res,401,{error:'다시 참가해주세요'});
 if(b.action==='leave'){
  if(!p)return send(res,401,{error:'참가 정보를 확인할 수 없습니다'});
@@ -77,16 +118,43 @@ if(b.action==='leave'){
  broadcast();return send(res,200,{ok:true});
 }
 
+if(b.action==='prizeStatus'){
+ if(!p||p.left||t.phase!=='finished'||p.id!==t.champion)return send(res,403,{error:'최종 우승자만 상품을 확인할 수 있습니다'});
+ const award=await awardForChampion();
+ return send(res,200,{types:await prizeSummary(),award:awardResponse(award)});
+}
+if(b.action==='claimPrize'){
+ if(!p||p.left||t.phase!=='finished'||p.id!==t.champion)return send(res,403,{error:'최종 우승자만 수령할 수 있습니다'});
+ const type=String(b.type||'');if(!PRIZE_TYPES[type])return send(res,400,{error:'상품을 선택하세요'});
+ const result=await claimCard(type,p);
+ if(result.error)return send(res,409,result);
+ broadcast();return send(res,200,result);
+}
 if(b.action==='move'){if(!p||p.left||!p.alive)return send(res,403,{error:'경기 참가자가 아닙니다'});if(t.phase!=='playing'||Date.now()>=t.deadline-10000)return send(res,409,{error:'선택 가능 시간이 종료됐습니다'});if(!moves.includes(b.move))return send(res,400,{error:'잘못된 선택입니다'});const m=activeMatches().find(x=>x.a===p.id||x.b===p.id);if(!m)return send(res,403,{error:'현재 경기가 없습니다'});if(m.a===p.id)m.amove=b.move;else m.bmove=b.move;broadcast();return send(res,200,{ok:true})}
 if(b.action==='chat'){if(!p||p.left||!chatEnabled)return send(res,403,{error:'채팅을 사용할 수 없습니다'});const msg=String(b.message||'').trim();if(!msg||msg.length>80||/https?:|@|\d[\d -]{7,}\d/i.test(msg))return send(res,400,{error:'메시지 내용을 확인해주세요'});const now=Date.now();if(p.lastChat&&now-p.lastChat<2500)return send(res,429,{error:'잠시 후 다시 보내주세요'});p.lastChat=now;chat.push({id:rand().slice(0,12),name:maskProfanity(p.name),message:maskProfanity(msg),time:now});if(chat.length>100)chat.shift();broadcast();return send(res,200,{ok:true})}
-if(b.action==='admin'){if(!authorized(req))return send(res,401,{error:'로그인이 필요합니다'});try{if(b.cmd==='reset'){if(!['nickname','anonymous','verified'].includes(b.mode))throw Error('모드를 선택하세요');reset(b.mode)}else if(b.cmd==='codes'){if(t.phase!=='lobby'||t.mode!=='verified')throw Error('인증코드 모드 대기 중에만 발급 가능합니다');const count=Number(b.count||10);if(!Number.isInteger(count)||count<1||count>200||codes.size+count>200)throw Error('발급 수량은 최대 200개입니다');const issued=[];for(let i=0;i<count;i++){let code;do{code=crypto.randomBytes(5).toString('hex').toUpperCase()}while(codes.has(code));codes.set(code,false);issued.push(code)}broadcast();return send(res,200,{ok:true,codes:issued})}else if(b.cmd==='start'){if(t.phase!=='lobby')throw Error('이미 시작했습니다');start()}else if(b.cmd==='auto'){
+if(b.action==='prizeAdmin'){
+ if(!authorized(req))return send(res,401,{error:'관리자 인증이 필요합니다'});
+ const inventory=await dbQuery(`select c.id,c.type,c.serial,c.award_id,a.player_name,a.claimed_at,a.event_id
+ from rps_prize_cards c left join rps_prize_awards a on a.id=c.award_id order by c.created_at desc`);
+ return send(res,200,{inventory:inventory.map(x=>({id:x.id,type:x.type,name:PRIZE_TYPES[x.type],serial:x.serial,status:x.award_id?'지급완료':'미사용',award:x.award_id?{playerName:x.player_name,claimedAt:Number(x.claimed_at),eventId:x.event_id}:null})),awards:[]});
+}
+if(b.action==='admin'){if(!authorized(req))return send(res,401,{error:'로그인이 필요합니다'});try{if(b.cmd==='addPrize'){
+ const type=String(b.type||'');const serial=String(b.serial||'').trim();const pin=String(b.pin||'').trim();
+ if(!PRIZE_TYPES[type]||!serial||!pin||serial.length>160||pin.length>160)throw Error('상품 종류·일련번호·PIN을 확인하세요');
+ try{await dbQuery('insert into rps_prize_cards(id,type,serial,pin) values($1,$2,$3,$4)',[crypto.randomUUID(),type,serial,pin])}
+ catch(e){if(e.code==='23505')throw Error('이미 등록된 일련번호입니다');throw e}
+ return send(res,200,{ok:true});
+ }else if(b.cmd==='deletePrize'){
+ const rows=await dbQuery('delete from rps_prize_cards where id=$1 and award_id is null returning id',[String(b.id||'')]);
+ if(!rows.length)throw Error('미사용 상품만 삭제할 수 있습니다');return send(res,200,{ok:true});
+ }else if(b.cmd==='reset'){if(!['nickname','anonymous','verified'].includes(b.mode))throw Error('모드를 선택하세요');reset(b.mode)}else if(b.cmd==='codes'){if(t.phase!=='lobby'||t.mode!=='verified')throw Error('인증코드 모드 대기 중에만 발급 가능합니다');const count=Number(b.count||10);if(!Number.isInteger(count)||count<1||count>200||codes.size+count>200)throw Error('발급 수량은 최대 200개입니다');const issued=[];for(let i=0;i<count;i++){let code;do{code=crypto.randomBytes(5).toString('hex').toUpperCase()}while(codes.has(code));codes.set(code,false);issued.push(code)}broadcast();return send(res,200,{ok:true,codes:issued})}else if(b.cmd==='start'){if(t.phase!=='lobby')throw Error('이미 시작했습니다');start()}else if(b.cmd==='auto'){
  const enabled=b.enabled===true;
  const delay=Number(b.delay);
  if(!Number.isInteger(delay)||delay<3||delay>120)throw Error('자동 진행 대기 시간은 3~120초로 설정하세요');
  if(enabled&&t.phase==='lobby')throw Error('대진 추첨 후 자동 진행을 켜주세요');
  autoMode=enabled;autoDelay=delay;autoNextAt=enabled&&t.phase==='ready'?Date.now()+autoDelay*1000:0;
  }else if(b.cmd==='open'){openRound()}else if(b.cmd==='close'){++version;finishRound()}else if(b.cmd==='duration'){if(t.phase==='playing')throw Error('경기 진행 중입니다');const d=Number(b.duration);if(!Number.isInteger(d)||d<15||d>120)throw Error('15~120초 사이로 설정하세요');t.duration=d}else if(b.cmd==='removePlayer'){if(t.phase!=='lobby')throw Error('참가자 제외는 대회 시작 전만 가능합니다');const id=String(b.playerId||'');if(!players.has(id))throw Error('참가자를 찾을 수 없습니다');players.delete(id);for(const [token,pid] of tokens){if(pid===id)tokens.delete(token)}}else if(b.cmd==='deleteChat'){const id=String(b.messageId||'');const index=chat.findIndex(m=>m.id===id);if(index<0)throw Error('메시지를 찾을 수 없습니다');chat.splice(index,1)}else if(b.cmd==='adminChat'){if(!chatEnabled)throw Error('채팅이 꺼져 있습니다');const message=String(b.message||'').trim();if(!message||message.length>80)throw Error('관리자 메시지는 1~80자로 입력하세요');chat.push({id:rand().slice(0,12),name:'📢 관리자',message:maskProfanity(message),time:Date.now()});if(chat.length>100)chat.shift()}else if(b.cmd==='setNotice'){const message=String(b.message||'').trim();if(message.length>140)throw Error('안내문은 140자 이내로 입력하세요');customNotice=maskProfanity(message)}else if(b.cmd==='toggleChat'){chatEnabled=!chatEnabled}else if(b.cmd==='clearChat'){chat=[]}else throw Error('잘못된 명령');broadcast();return send(res,200,{ok:true})}catch(e){return send(res,409,{error:e.message})}}
-send(res,400,{error:'알 수 없는 요청'})});return true}
+send(res,400,{error:'알 수 없는 요청'})}catch(e){console.error('Tournament request:',e.message);if(!res.writableEnded)send(res,503,{error:'상품 데이터베이스 처리에 실패했습니다. 관리자에게 문의하세요'})}});return true}
 setInterval(()=>{for(const s of streams){try{s.write(': ping\n\n')}catch{streams.delete(s)}}},25000).unref();
 module.exports={handle};
 
