@@ -15,7 +15,21 @@ let seq=0,version=0,chat=[],chatEnabled=true,customNotice='';
 let autoMode=false,autoDelay=10,autoNextAt=0;
 // Production prize storage. DATABASE_URL is server-side only; never exposed to browsers.
 const {Pool}=require('pg');
-const prizePool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:true},max:5}):null;
+// Supabase certificate chain can use a project-specific CA. Never disable TLS verification.
+function prizeTlsOptions(){
+ const raw=process.env.SUPABASE_DB_CA||'';
+ const ca=raw.trim().replace(/\\n/g,'\n');
+ if(raw&&!ca.includes('-----BEGIN CERTIFICATE-----'))throw Error('SUPABASE_DB_CA에는 PEM 형식의 CA 인증서를 넣어주세요');
+ return ca?{rejectUnauthorized:true,ca,servername:new URL(process.env.DATABASE_URL).hostname}:{rejectUnauthorized:true};
+}
+function prizeConnectionConfig(){
+ const url=new URL(process.env.DATABASE_URL);
+ if(!['postgres:','postgresql:'].includes(url.protocol))throw Error('DATABASE_URL은 PostgreSQL 연결 주소여야 합니다');
+ // pg connection-string SSL query params may override explicit ca; remove them.
+ for(const key of ['sslmode','sslrootcert','sslcert','sslkey'])url.searchParams.delete(key);
+ return {connectionString:url.toString(),ssl:prizeTlsOptions(),max:5,connectionTimeoutMillis:12000};
+}
+const prizePool=process.env.DATABASE_URL?new Pool(prizeConnectionConfig()):null;
 const PRIZE_TYPES={google:'구글 기프트카드 (1만원권)',valorant:'발로란트 선불카드 (1만원권)',kakao:'카카오 선물하기 상품권 (1만원권)',oliveyoung:'올리브영 기프트카드 (1만원권)'};
 let eventId=crypto.randomUUID();
 function requirePrizeDB(){if(!prizePool)throw Error('상품 지급 DB가 연결되지 않았습니다. DATABASE_URL을 설정하세요')}
@@ -154,7 +168,7 @@ if(b.action==='admin'){if(!authorized(req))return send(res,401,{error:'로그인
  if(enabled&&t.phase==='lobby')throw Error('대진 추첨 후 자동 진행을 켜주세요');
  autoMode=enabled;autoDelay=delay;autoNextAt=enabled&&t.phase==='ready'?Date.now()+autoDelay*1000:0;
  }else if(b.cmd==='open'){openRound()}else if(b.cmd==='close'){++version;finishRound()}else if(b.cmd==='duration'){if(t.phase==='playing')throw Error('경기 진행 중입니다');const d=Number(b.duration);if(!Number.isInteger(d)||d<15||d>120)throw Error('15~120초 사이로 설정하세요');t.duration=d}else if(b.cmd==='removePlayer'){if(t.phase!=='lobby')throw Error('참가자 제외는 대회 시작 전만 가능합니다');const id=String(b.playerId||'');if(!players.has(id))throw Error('참가자를 찾을 수 없습니다');players.delete(id);for(const [token,pid] of tokens){if(pid===id)tokens.delete(token)}}else if(b.cmd==='deleteChat'){const id=String(b.messageId||'');const index=chat.findIndex(m=>m.id===id);if(index<0)throw Error('메시지를 찾을 수 없습니다');chat.splice(index,1)}else if(b.cmd==='adminChat'){if(!chatEnabled)throw Error('채팅이 꺼져 있습니다');const message=String(b.message||'').trim();if(!message||message.length>80)throw Error('관리자 메시지는 1~80자로 입력하세요');chat.push({id:rand().slice(0,12),name:'📢 관리자',message:maskProfanity(message),time:Date.now()});if(chat.length>100)chat.shift()}else if(b.cmd==='setNotice'){const message=String(b.message||'').trim();if(message.length>140)throw Error('안내문은 140자 이내로 입력하세요');customNotice=maskProfanity(message)}else if(b.cmd==='toggleChat'){chatEnabled=!chatEnabled}else if(b.cmd==='clearChat'){chat=[]}else throw Error('잘못된 명령');broadcast();return send(res,200,{ok:true})}catch(e){return send(res,409,{error:e.message})}}
-send(res,400,{error:'알 수 없는 요청'})}catch(e){console.error('Tournament request:',e.message);if(!res.writableEnded)send(res,503,{error:({ENOTFOUND:'데이터베이스 주소를 찾을 수 없습니다',ECONNREFUSED:'데이터베이스 연결이 거부되었습니다','28P01':'데이터베이스 비밀번호가 일치하지 않습니다','42P01':'상품 테이블이 없습니다. SQL 실행을 확인하세요','42501':'상품 테이블 접근 권한이 없습니다',SELF_SIGNED_CERT_IN_CHAIN:'데이터베이스 SSL 인증서 설정을 확인하세요',UNABLE_TO_VERIFY_LEAF_SIGNATURE:'데이터베이스 SSL 인증서를 확인하세요'})[e.code]||'상품 DB 연결/처리에 실패했습니다. Render Logs에서 Tournament request 오류를 확인하세요'})}});return true}
+send(res,400,{error:'알 수 없는 요청'})}catch(e){console.error('Tournament request:',e.message);if(!res.writableEnded)send(res,503,{error:({ENOTFOUND:'데이터베이스 주소를 찾을 수 없습니다',ECONNREFUSED:'데이터베이스 연결이 거부되었습니다','28P01':'데이터베이스 비밀번호가 일치하지 않습니다','42P01':'상품 테이블이 없습니다. SQL 실행을 확인하세요','42501':'상품 테이블 접근 권한이 없습니다',SELF_SIGNED_CERT_IN_CHAIN:'Supabase CA 인증서가 필요합니다. Render의 SUPABASE_DB_CA를 설정하세요',UNABLE_TO_VERIFY_LEAF_SIGNATURE:'데이터베이스 SSL 인증서를 확인하세요'})[e.code]||'상품 DB 연결/처리에 실패했습니다. Render Logs에서 Tournament request 오류를 확인하세요'})}});return true}
 setInterval(()=>{for(const s of streams){try{s.write(': ping\n\n')}catch{streams.delete(s)}}},25000).unref();
 module.exports={handle};
 
