@@ -1,11 +1,12 @@
 const tournament=require('./tournament.cjs');
+const {isAdminSession,createAdminSession,clearAdminSession}=require('./admin-session.cjs');
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const PORT=process.env.PORT||3000;
 // Public test deployment: protect administration with HTTP Basic Auth over HTTPS.
 const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD;
 if(!ADMIN_PASSWORD || ADMIN_PASSWORD.length<12){console.error('ADMIN_PASSWORD 환경변수를 12자 이상으로 설정해야 합니다.');process.exit(1)}
 const ADMIN_USER=process.env.ADMIN_USER||'admin';
-function adminAuthorized(req){
+function adminAuthorized(req){if(isAdminSession(req))return true;
  const auth=req.headers.authorization||'';
  if(!auth.startsWith('Basic '))return false;
  let decoded='';try{decoded=Buffer.from(auth.slice(6),'base64').toString('utf8')}catch{return false}
@@ -28,9 +29,14 @@ function broadcast(){const s='data: '+JSON.stringify(view())+'\n\n';for(const c 
 function getPlayer(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');return players.get(sessions.get(token))}
 function finalize(){if(game.phase!=='choosing')return;game.phase='result';let survivors=0;for(const p of players.values()){if(!p.alive)continue;if(!p.move){p.alive=false;continue}if(p.move===game.hostMove){survivors++;continue}const win=(p.move==='rock'&&game.hostMove==='scissors')||(p.move==='scissors'&&game.hostMove==='paper')||(p.move==='paper'&&game.hostMove==='rock');p.alive=win;if(win)survivors++}game.announcement=`${game.round}라운드 종료! 생존자 ${survivors}명`;if(survivors===1){game.phase='finished';game.winner=[...players.values()].find(p=>p.alive).id;game.announcement=`우승자 ${game.winner}! 축하합니다!`}else if(survivors===0){game.phase='finished';game.announcement='생존자가 없어요. 우승자 없이 종료되었습니다.'}broadcast()}
 const limits=new Map();function rate(key,ms){const now=Date.now();if(now-(limits.get(key)||0)<ms)return false;limits.set(key,now);return true}
-const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://localhost');if(tournament.handle(req,res,u))return;if(req.method==='GET'&&u.pathname==='/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});res.write('data: '+JSON.stringify(view())+'\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return}
+const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://localhost');
+if(u.pathname==='/admin/login'&&req.method==='POST'){let body='';req.on('data',c=>{body+=c;if(body.length>2048)req.destroy()});req.on('end',()=>{try{const b=JSON.parse(body);const a=Buffer.from(String(b.user||'')),x=Buffer.from(ADMIN_USER),c=Buffer.from(String(b.password||'')),d=Buffer.from(ADMIN_PASSWORD);if(a.length===x.length&&c.length===d.length&&crypto.timingSafeEqual(a,x)&&crypto.timingSafeEqual(c,d)){createAdminSession(res);return send(res,200,{ok:true})}return send(res,401,{error:'관리자 로그인 정보가 올바르지 않습니다'})}catch{return send(res,400,{error:'잘못된 요청'})}});return}
+if(u.pathname==='/admin/logout'&&req.method==='POST'){clearAdminSession(res);return send(res,200,{ok:true})}
+if(u.pathname==='/admin/session'&&req.method==='GET')return send(res,200,{loggedIn:adminAuthorized(req)});
+if(tournament.handle(req,res,u))return;if(req.method==='GET'&&u.pathname==='/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});res.write('data: '+JSON.stringify(view())+'\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return}
 if(req.method==='GET'&&['/host.jpg','/player.jpg'].includes(u.pathname)){res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});res.end(fs.readFileSync(path.join(__dirname,u.pathname.slice(1))));return}
-if(u.pathname==='/admin'&&!adminAuthorized(req))return denyAdmin(res);
+if(u.pathname==='/admin'&&!adminAuthorized(req)){res.writeHead(302,{Location:'/admin-login', 'Cache-Control':'no-store'});res.end();return}
+if(u.pathname==='/admin-login'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(fs.readFileSync(path.join(__dirname,'admin-login.html')));return}
 if(req.method==='GET'&&u.pathname==='/health'){return send(res,200,{ok:true})}
 if(req.method==='GET'&&(u.pathname==='/'||u.pathname==='/admin')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(fs.readFileSync(path.join(__dirname,u.pathname==='/admin'?'admin.html':'index.html')));return}
 if(req.method!=='POST'||u.pathname!=='/api')return send(res,404,{error:'찾을 수 없습니다'});let raw='';req.on('data',c=>{raw+=c;if(raw.length>4096)req.destroy()});req.on('end',()=>{let b;try{b=JSON.parse(raw)}catch{return send(res,400,{error:'잘못된 요청'})}const p=getPlayer(req);if(b.action==='join'){if(game.phase!=='lobby')return send(res,409,{error:'현재 참가 신청이 마감됐어요'});if(players.size>=200)return send(res,409,{error:'참가 정원이 찼어요'});const id=display(),token=rid();players.set(id,{id,alive:true,move:null});sessions.set(token,id);broadcast();return send(res,200,{token,id})}
