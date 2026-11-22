@@ -12,7 +12,7 @@
 @media(max-width:760px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static}.side .stage{flex-direction:row;overflow-x:auto}.side .stageCol{min-width:160px}.rosterTabs button{font-size:12px}.cinema{min-height:180px}.cinema .hand{font-size:65px}}
 @media(prefers-reduced-motion:reduce){.cinema,.cinema *{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 
-/* v0.7.15: explicit two-column placement, preventing grid auto-placement */
+/* v0.7.18: explicit two-column placement, preventing grid auto-placement */
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start}
 .mainColumn{grid-column:1;min-width:0}
 .side{grid-column:2;grid-row:1;min-width:0;position:static}
@@ -20,10 +20,10 @@
 .side>section{width:100%}
 @media(max-width:760px){.layout{grid-template-columns:minmax(0,1fr)}.mainColumn{grid-column:1;grid-row:1}.side{grid-column:1;grid-row:2}}
 
-/* v0.7.15: participant-specific result and left/right orientation */
+/* v0.7.18: participant-specific result and left/right orientation */
 .myOutcome{margin:14px 0 4px;padding:15px 13px;border-radius:12px;font-weight:900;font-size:clamp(17px,3vw,22px);line-height:1.55;text-align:center}.myOutcome.victory{color:#fde68a;background:#4a3416;border:1px solid #d4a032}.myOutcome.defeat{color:#cbd5e1;background:#202735;border:1px solid #475569}.matchRole{display:block;color:#93c5fd;font-size:11px;font-weight:800;margin-bottom:5px}.cinema .fighter:first-of-type .fighterName{color:#fef08a}@media(max-width:760px){.myOutcome{font-size:18px}.matchRole{font-size:12px}}
  .watchProgress{background:#0d1728;border:1px solid #344761;border-radius:12px;padding:14px;text-align:center;margin:10px 0 14px}.watchProgress #watchStage{font-size:16px;font-weight:800;color:#e2e8f0}.watchTimer{font-size:clamp(25px,5vw,38px);font-weight:900;color:#fbbf24;margin:6px 0}.watchProgress #watchDetails{font-size:12px} 
-/* v0.7.15: each round contains all its matches; each match is one readable row */
+/* v0.7.18: each round contains all its matches; each match is one readable row */
 .side .stage{display:flex;flex-direction:column;overflow:visible}.side .stageCol{width:100%;min-width:0}
 .bracketMatches{display:flex;flex-direction:column;gap:7px}.bracketRow{background:#152238;border:1px solid #40516b;border-radius:10px;padding:9px 8px;min-width:0}
 .bracketMatchLine{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px;line-height:1.5;font-weight:750;overflow-wrap:anywhere}
@@ -31,7 +31,7 @@
 .bracketResult{font-size:11px;color:#b6c4d8;margin-top:5px}.bracketResultDone{color:#86efac}.bracketResult strong{font-weight:900;color:#bbf7d0}
 @media(max-width:760px){.side .stage{flex-direction:column;overflow:visible}.side .stageCol{width:100%;min-width:0}}
 
-/* v0.7.15: persistent chat dock on both desktop and mobile */
+/* v0.7.18: persistent chat dock on both desktop and mobile */
 :root{--chat-dock-height:210px}
 body{padding-bottom:calc(var(--chat-dock-height) + env(safe-area-inset-bottom, 0px) + 14px)}
 .wrap{padding-bottom:28px}
@@ -42,7 +42,38 @@ body{padding-bottom:calc(var(--chat-dock-height) + env(safe-area-inset-bottom, 0
 .chatDock input{margin:0;min-width:0;min-height:40px;padding:9px 11px;font-size:16px}
 .chatDock button{min-height:40px;padding:9px 15px;white-space:nowrap}
 @media(max-width:760px){:root{--chat-dock-height:190px}.chatDock{padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px))!important}.chatDock .chatHint{display:none}.chatDock .chat{font-size:12px}.chatDock h2{font-size:13px}}
-</style></head><body><main class="wrap"><header><div><div class="tag">● LIVE TOURNAMENT v0.7.15</div><h1>✊ 가위바위보 토너먼트</h1></div><span id="status" class="pill">접속 중</span></header><div class="layout"><div class="mainColumn"><section><div id="notice" class="notice">연결 중...</div><p class="muted" id="stats"></p></section><section id="joinPanel"><h2>대회 참가 신청</h2><input id="nickname" placeholder="닉네임 (2~12자)" maxlength="12"><div id="codeArea" class="hide"><input id="code" placeholder="개인 인증코드"></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:12px 0"><input id="agree" type="checkbox" style="width:auto;margin-top:3px"> <span>무료 시연 대회 참가에 동의합니다. 채팅에서 개인정보를 공유하지 않으며, 운영자가 대회를 초기화하면 참가 기록이 삭제될 수 있음을 확인했습니다.</span></label><button id="joinBtn" style="width:100%">동의하고 참가하기</button><p class="muted">동일한 기기에서는 참가 상태가 유지됩니다.</p></section><section id="myPanel" class="hide"><div class="row" style="justify-content:space-between"><h2 style="margin:0">내 참가 정보</h2><button id="exitBtn" type="button" style="background:#334155;padding:8px 13px">나가기</button></div><div class="row"><b id="myName"></b><span id="myState" class="pill"></span></div><p id="myMatch" class="muted"></p><div id="myOutcome" class="myOutcome hide" role="status" aria-live="polite"></div><div id="movePanel" class="hide"><p class="countdown" id="timer"></p><div class="moves"><button data-move="rock">✊<br><small>바위</small></button><button data-move="paper">✋<br><small>보</small></button><button data-move="scissors">✌️<br><small>가위</small></button></div><p class="muted">선택 시간 10초 · 이후 10초 동안 결과 공개를 기다립니다. 미선택 시 바위가 자동 적용됩니다.</p></div></section><section id="cinemaPanel" class="hide"><h2>⚔️ 대결 하이라이트</h2><div id="cinema" class="cinema"></div><div id="cinemaText" class="result" style="text-align:center"></div><div id="personalResult" class="personalResult"></div></section><section><h2>🎮 현재 경기 · 실시간 관전</h2><p class="muted" id="roundLabel">대진 추첨 대기</p><div id="watchProgress" class="watchProgress" role="status" aria-live="off"><div id="watchStage">대진 추첨 대기</div><div id="watchTimer" class="watchTimer"></div><div id="watchDetails" class="muted"></div></div><div id="matches"></div></section><section id="chatDock" class="chatDock" aria-label="실시간 채팅"><h2>💬 실시간 채팅 <span class="chatHint">대화는 아래에서 계속할 수 있어요</span></h2><div id="chat" class="chat"></div><div class="row" style="margin-top:9px"><input id="chatInput" placeholder="메시지 (80자 이내)" maxlength="80" style="flex:1;min-width:0"><button id="chatBtn">전송</button></div></section><p class="muted">테스트 버전 · 서버 재시작 시 대회 데이터가 초기화됩니다.</p></div><aside class="side"><section><h2>👥 전체 참가 현황 <span id="headCount" class="pill">0명</span></h2><div class="rosterTabs"><button data-roster="all" class="active">전체 참가 <span id="allCount"></span></button><button data-roster="advance">진출자 <span id="advanceCount"></span></button><button data-roster="out">탈락자 <span id="outCount"></span></button></div><div id="roster"></div></section><section class="bracketSide"><h2>🏆 토너먼트 대진 현황</h2><p class="muted">확정된 경기 결과와 다음 대진</p><div id="confirmedBracket" class="stage"></div></section></aside></div></main><script>
+/* v0.7.18: only joined participants see the chat dock */
+:root{--chat-dock-height:33dvh}
+body{padding-bottom:0}
+body.chatActive{padding-bottom:calc(var(--chat-dock-height) + env(safe-area-inset-bottom, 0px) + 14px)}
+.chatDock{height:var(--chat-dock-height);min-height:170px;max-height:400px}
+@media(max-width:760px){:root{--chat-dock-height:33dvh}.chatDock{height:var(--chat-dock-height);min-height:160px;max-height:360px}}
+@supports not (height:1dvh){:root{--chat-dock-height:33vh}}
+
+/* v0.7.18: active player/spectator focus with chat still interactive */
+.focusShade{position:fixed;inset:0;background:#070e1ae8;z-index:70;pointer-events:auto}
+body.gameFocus{overflow:hidden}
+body.gameFocus #chatDock{z-index:110}
+body.gameFocus #myPanel,body.gameFocus #watchPanel{z-index:1}
+body.gameFocus.focusPlayer #myPanel,
+body.gameFocus.focusSpectator #watchPanel{
+ position:fixed!important;z-index:90;top:12px;left:50%;transform:translateX(-50%);
+ width:min(720px,calc(100vw - 24px));max-height:calc(100dvh - var(--chat-dock-height) - 28px);
+ overflow:auto;overscroll-behavior:contain;box-shadow:0 12px 45px #000a;margin:0!important
+}
+body.gameFocus.focusPlayer #myPanel #exitBtn{display:none}
+body.gameFocus.focusSpectator #watchPanel #matches{max-height:25dvh;overflow:auto}
+.watchLiveNotice{font-size:20px;font-weight:900;color:#fbbf24;margin:10px auto}
+body.gameFocus .chatDock{height:var(--chat-dock-height)}
+@media(max-width:760px){
+ body.gameFocus.focusPlayer #myPanel,body.gameFocus.focusSpectator #watchPanel{
+ top:6px;width:calc(100vw - 12px);max-height:calc(100dvh - var(--chat-dock-height) - 18px);padding:12px
+ }
+ body.gameFocus.focusPlayer #myPanel .moves{gap:6px}
+ body.gameFocus.focusPlayer #myPanel .moves button{padding:10px 4px}
+ body.gameFocus.focusSpectator #watchPanel #matches{max-height:20dvh}
+}
+</style></head><body><div id="focusShade" class="focusShade hide" aria-hidden="true"></div><main class="wrap"><header><div><div class="tag">● LIVE TOURNAMENT v0.7.18</div><h1>✊ 가위바위보 토너먼트</h1></div><span id="status" class="pill">접속 중</span></header><div class="layout"><div class="mainColumn"><section><div id="notice" class="notice">연결 중...</div><p class="muted" id="stats"></p></section><section id="joinPanel"><h2>대회 참가 신청</h2><input id="nickname" placeholder="닉네임 (2~12자)" maxlength="12"><div id="codeArea" class="hide"><input id="code" placeholder="개인 인증코드"></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:12px 0"><input id="agree" type="checkbox" style="width:auto;margin-top:3px"> <span>무료 시연 대회 참가에 동의합니다. 채팅에서 개인정보를 공유하지 않으며, 운영자가 대회를 초기화하면 참가 기록이 삭제될 수 있음을 확인했습니다.</span></label><button id="joinBtn" style="width:100%">동의하고 참가하기</button><p class="muted">동일한 기기에서는 참가 상태가 유지됩니다.</p></section><section id="myPanel" class="hide"><div class="row" style="justify-content:space-between"><h2 style="margin:0">내 참가 정보</h2><button id="exitBtn" type="button" style="background:#334155;padding:8px 13px">나가기</button></div><div class="row"><b id="myName"></b><span id="myState" class="pill"></span></div><p id="myMatch" class="muted"></p><div id="myOutcome" class="myOutcome hide" role="status" aria-live="polite"></div><div id="movePanel" class="hide"><p class="countdown" id="timer"></p><div class="moves"><button data-move="rock">✊<br><small>바위</small></button><button data-move="paper">✋<br><small>보</small></button><button data-move="scissors">✌️<br><small>가위</small></button></div><p class="muted">선택 시간 10초 · 이후 10초 동안 결과 공개를 기다립니다. 미선택 시 바위가 자동 적용됩니다.</p></div></section><section id="cinemaPanel" class="hide"><h2>⚔️ 대결 하이라이트</h2><div id="cinema" class="cinema"></div><div id="cinemaText" class="result" style="text-align:center"></div><div id="personalResult" class="personalResult"></div></section><section id="watchPanel"><h2>🎮 현재 경기 · 실시간 관전</h2><p class="muted" id="roundLabel">대진 추첨 대기</p><div id="watchProgress" class="watchProgress" role="status" aria-live="off"><div id="watchStage">대진 추첨 대기</div><div id="watchLiveNotice" class="watchLiveNotice hide">🔴 경기중입니다.</div><div id="watchTimer" class="watchTimer"></div><div id="watchDetails" class="muted"></div></div><div id="matches"></div></section><section id="chatDock" class="chatDock hide" aria-label="실시간 채팅"><h2 class="chatHeading">💬 실시간 채팅 <span id="chatRoomStatus" class="chatRoomStatus" role="status" aria-live="polite">🟢 채팅방이 운영중입니다.</span></h2><div id="chat" class="chat"></div><div class="row" style="margin-top:9px"><input id="chatInput" placeholder="메시지 (80자 이내)" maxlength="80" style="flex:1;min-width:0"><button id="chatBtn">전송</button></div></section><p class="muted">테스트 버전 · 서버 재시작 시 대회 데이터가 초기화됩니다.</p></div><aside class="side"><section><h2>👥 전체 참가 현황 <span id="headCount" class="pill">0명</span></h2><div class="rosterTabs"><button data-roster="all" class="active">전체 참가 <span id="allCount"></span></button><button data-roster="advance">진출자 <span id="advanceCount"></span></button><button data-roster="out">탈락자 <span id="outCount"></span></button></div><div id="roster"></div></section><section class="bracketSide"><h2>🏆 토너먼트 대진 현황</h2><p class="muted">확정된 경기 결과와 다음 대진</p><div id="confirmedBracket" class="stage"></div></section></aside></div></main><script>
 let state=null,me=null,selected=null,lastCinema='',lastRound='',cinemaTimeout=0,rosterTab='all';const $=id=>document.getElementById(id),key='rps_tournament_token';const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const hands={rock:'✊',paper:'✋',scissors:'✌️'};
 async function api(body,token=localStorage.getItem(key)){const r=await fetch('/tournament/api',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'요청 실패');return d}
 async function resume(){if(!localStorage.getItem(key))return;try{me=await api({action:'resume'});render()}catch{localStorage.removeItem(key);me=null;render()}}
@@ -69,9 +100,40 @@ function cinema(m){
  cinemaTimeout=setTimeout(()=>$('cinemaPanel').classList.add('hide'),12000);
 }
 
+function roundName(count){const slots=count*2;return slots<=2?'결승전':slots===4?'4강':slots===8?'8강':slots===16?'16강':`${slots}강`;}
+function matchTitle(count,index){return count===1?'결승전':`${roundName(count)} ${index+1}차전`;}
+let focusMode='',focusReleaseTimer=0,focusResultKey='';
+function setFocus(mode){
+ if(focusMode===mode)return;
+ focusMode=mode;
+ document.body.classList.toggle('gameFocus',!!mode);
+ document.body.classList.toggle('focusPlayer',mode==='player');
+ document.body.classList.toggle('focusSpectator',mode==='spectator');
+ $('focusShade').classList.toggle('hide',!mode);
+ if(mode)window.scrollTo({top:0,behavior:'instant'});
+}
+function updateFocus(s){
+ const active=(s.matches||[]).filter(m=>m.phase==='active');
+ const mine=active.some(m=>m.a?.id===me?.id||m.b?.id===me?.id);
+ if(!me){clearTimeout(focusReleaseTimer);setFocus('');return}
+ if(s.phase==='playing'&&active.length){
+   clearTimeout(focusReleaseTimer);focusReleaseTimer=0;
+   focusResultKey='';
+   setFocus(mine?'player':'spectator');
+   return;
+ }
+ if(focusMode&&s.phase!=='playing'){
+   const resultKey=`${s.round}:${s.phase}:${(s.history||[]).length}`;
+   if(focusResultKey!==resultKey){
+     focusResultKey=resultKey;
+     clearTimeout(focusReleaseTimer);
+     focusReleaseTimer=setTimeout(()=>{setFocus('');focusReleaseTimer=0},3500);
+   }
+ }else if(!focusMode)clearTimeout(focusReleaseTimer);
+}
 function roundProgress(s){
  const matches=s.matches||[];
- const label=s.roundType==='결승'?'결승전':s.roundType==='4강'?'준결승전':s.roundType==='예선'?`예선 ${s.round}라운드`:`${s.roundType} ${s.round}라운드`;
+ const label=roundName(matches.length);
  const done=matches.filter(m=>m.phase==='done').length;
  const active=matches.filter(m=>m.phase==='active').length;
  const pending=matches.filter(m=>m.phase==='pending').length;
@@ -79,20 +141,22 @@ function roundProgress(s){
  return {label,done,active,pending,ordinal,total:matches.length};
 }
 function render(){if(!state)return;const s=state;const players=s.players||[];$('status').textContent=s.phase==='playing'?'🔴 경기 중':s.phase==='finished'?'🏆 종료':'대기';$('notice').textContent=(s.phase==='ready'||s.phase==='playing')?'대진 상대가 결정되었습니다. 참가자는 대결을 준비해주세요!':s.notice;$('stats').textContent=`참가 ${s.participants}명 · 생존 ${s.alive}명 · 닉네임 시연 모드`;$('headCount').textContent=s.participants+'명';$('allCount').textContent=players.length;$('advanceCount').textContent=players.filter(p=>p.alive).length;$('outCount').textContent=players.filter(p=>!p.alive).length;const rosterPlayers=players.filter(p=>rosterTab==='all'||(rosterTab==='advance'?p.alive:!p.alive));$('roster').innerHTML=rosterPlayers.map(p=>`<div class="name ${p.alive?'':'out'}"><b>${esc(p.name)}</b><span class="rosterStatus ${p.alive?'alive':'eliminated'}">${p.alive?'🟢 '+(s.phase==='lobby'?'참가':'진출'):'⚪ 탈락'}</span></div>`).join('')||'<p class="rosterEmpty">해당 참가자가 없습니다.</p>';document.querySelectorAll('[data-roster]').forEach(b=>b.classList.toggle('active',b.dataset.roster===rosterTab));
-$('joinPanel').classList.toggle('hide',!!me);if(!me)$('myPanel').classList.add('hide');$('joinBtn').disabled=s.phase!=='lobby';$('codeArea').classList.toggle('hide',s.mode!=='verified');const progress=roundProgress(s);const mine=s.matches.find(m=>m.a?.id===me?.id||m.b?.id===me?.id);if(me){$('myPanel').classList.remove('hide');$('myName').textContent=me.name;const minePlayer=players.find(p=>p.id===me.id);const champion=s.champion?.id===me.id;const eliminated=!!minePlayer&&!minePlayer.alive;const outcome=$('myOutcome');$('myState').textContent=champion?'🏆 최종 우승':eliminated?'탈락':'참가 중';outcome.className='myOutcome '+(champion?'victory':eliminated?'defeat':'hide');outcome.textContent=champion?'🏆 축하합니다! 최종 우승하셨습니다.':eliminated?'안타깝습니다. 탈락하셨습니다. 다음 기회에 도전해 주세요.':'';
+$('joinPanel').classList.toggle('hide',!!me);$('chatDock').classList.toggle('hide',!me);document.body.classList.toggle('chatActive',!!me);if(!me)$('myPanel').classList.add('hide');$('joinBtn').disabled=s.phase!=='lobby';$('codeArea').classList.toggle('hide',s.mode!=='verified');const progress=roundProgress(s);const mine=s.matches.find(m=>m.a?.id===me?.id||m.b?.id===me?.id);if(me){$('myPanel').classList.remove('hide');$('myName').textContent=me.name;const minePlayer=players.find(p=>p.id===me.id);const champion=s.champion?.id===me.id;const eliminated=!!minePlayer&&!minePlayer.alive;const outcome=$('myOutcome');$('myState').textContent=champion?'🏆 최종 우승':eliminated?'탈락':'참가 중';outcome.className='myOutcome '+(champion?'victory':eliminated?'defeat':'hide');outcome.textContent=champion?'🏆 축하합니다! 최종 우승하셨습니다.':eliminated?'안타깝습니다. 탈락하셨습니다. 다음 기회에 도전해 주세요.':'';
 const currentMine=s.matches.find(m=>m.phase==='active'&&(m.a?.id===me.id||m.b?.id===me.id));
 const pendingMine=s.matches.find(m=>m.phase==='pending'&&(m.a?.id===me.id||m.b?.id===me.id));
 const opponent=currentMine?(currentMine.a?.id===me.id?currentMine.b?.name:currentMine.a?.name):null;
 const waitingText=s.phase==='playing'&&progress.active?`현재 ${progress.label}${progress.total<=2&&progress.ordinal?' '+progress.ordinal+'번째 경기':''} 진행 중입니다. ${progress.done}/${progress.total}경기 완료 · ${progress.active}경기 진행 중. 내 경기 순서를 기다려 주세요.`:s.phase==='ready'?`대진 상대가 결정되었습니다. 참가자는 대결을 준비해주세요! ${progress.label} · ${progress.done}/${progress.total}경기 완료`: '현재 경기를 준비중입니다. 잠시 기다려 주세요.';
 $('myMatch').textContent=champion?'🏆 축하합니다! 최종 우승하셨습니다.':eliminated?'안타깝습니다. 탈락하셨습니다. 다음 기회에 도전해 주세요.':currentMine?`지금 내 경기입니다! 상대: ${opponent||'부전승'} · 가위·바위·보를 선택하세요.`:pendingMine?waitingText:mine?.phase==='done'&&s.phase==='ready'?`이번 경기 종료 · ${progress.label} 다음 경기 준비 중입니다.`:waitingText;const auto=mine?.phase==='active'&&((mine.a?.id===me.id&&mine.autoA)||(mine.b?.id===me.id&&mine.autoB));if(auto)selected='rock';const can=mine?.phase==='active'&&s.phase==='playing'&&Date.now()<s.deadline-10000;$('movePanel').classList.toggle('hide',mine?.phase!=='active');document.querySelectorAll('[data-move]').forEach(b=>{b.disabled=!can;b.classList.toggle('selected',selected===b.dataset.move)})}
 const liveMatches=s.matches.filter(m=>m.phase==='active');const watchLabel=progress.label;const watchNames=liveMatches.map(m=>`${m.a?.name||'-'} vs ${m.b?.name||'-'}`).join(' · ');$('watchStage').textContent=s.phase==='playing'?`${watchLabel} · ${liveMatches.length}경기 진행 중`:s.phase==='ready'?`${watchLabel} · 다음 경기 준비 중`:s.phase==='finished'?'🏆 토너먼트 종료':'대진 추첨 대기';$('watchDetails').textContent=s.phase==='playing'?`${progress.done}/${progress.total}경기 완료 · ${watchNames}`:s.phase==='ready'?`${progress.done}/${progress.total}경기 완료 · 다음 경기를 기다려 주세요`:s.phase==='finished'?`우승자: ${s.champion?.name||'-'}`:'참가자 모집 또는 대진 추첨을 기다려 주세요';$('watchProgress').classList.toggle('hide',s.phase==='lobby');
-$('roundLabel').textContent=s.round?`${s.round}라운드 · ${s.roundType} · ${s.matches.length}개 대진`:'대진 추첨 대기';$('matches').innerHTML=s.matches.length?s.matches.map((m,i)=>{const flip=me?.id===m.b?.id;const left=flip?m.b:m.a,right=flip?m.a:m.b;const leftSubmitted=flip?m.submittedB:m.submittedA,rightSubmitted=flip?m.submittedA:m.submittedB;const leftMove=flip?m.bmove:m.amove,rightMove=flip?m.amove:m.bmove;return `<div class="match ${m.a?.id===me?.id||m.b?.id===me?.id?'mine':''}"><div class="row" style="justify-content:space-between"><b>경기 ${i+1}</b><span class="pill">${m.phase==='done'?'종료':m.phase==='active'?'🔴 LIVE':'대기'}</span></div><div class="grid" style="margin-top:8px"><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'나':'왼쪽 참가자'}</small>${esc(left?.name||'-')} ${m.phase==='active'?(leftSubmitted?'✓':'…'):''}</div><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'대결 상대':'오른쪽 참가자'}</small>${esc(right?.name||'부전승')} ${m.phase==='active'?(rightSubmitted?'✓':'…'):''}</div></div>${m.phase==='done'?`<p class="winner">승자: ${esc((m.winner===m.a?.id?m.a:m.b)?.name||m.a?.name)}</p>`:''}${m.phase==='done'&&m.b?`<p class="muted">${hands[leftMove]||'미선택'} vs ${hands[rightMove]||'미선택'}</p>`:''}</div>`}).join(''):'<p class="muted">대회가 시작되면 대진표가 표시됩니다.</p>';
+$('roundLabel').textContent=s.round?`${s.round}라운드 · ${s.roundType} · ${s.matches.length}개 대진`:'대진 추첨 대기';$('matches').innerHTML=s.matches.length?s.matches.map((m,i)=>{const flip=me?.id===m.b?.id;const left=flip?m.b:m.a,right=flip?m.a:m.b;const leftSubmitted=flip?m.submittedB:m.submittedA,rightSubmitted=flip?m.submittedA:m.submittedB;const leftMove=flip?m.bmove:m.amove,rightMove=flip?m.amove:m.bmove;return `<div class="match ${m.a?.id===me?.id||m.b?.id===me?.id?'mine':''}"><div class="row" style="justify-content:space-between"><b>${matchTitle(s.matches.length,i)}</b><span class="pill">${m.phase==='done'?'종료':m.phase==='active'?'🔴 LIVE':'대기'}</span></div><div class="grid" style="margin-top:8px"><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'나':'PLAYER 1'}</small>${esc(left?.name||'-')} ${m.phase==='active'?(leftSubmitted?'✓':'…'):''}</div><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'대결 상대':'PLAYER 2'}</small>${esc(right?.name||'부전승')} ${m.phase==='active'?(rightSubmitted?'✓':'…'):''}</div></div>${m.phase==='done'?`<p class="winner">승자: ${esc((m.winner===m.a?.id?m.a:m.b)?.name||m.a?.name)}</p>`:''}${m.phase==='done'&&m.b?`<p class="muted">${hands[leftMove]||'미선택'} vs ${hands[rightMove]||'미선택'}</p>`:''}</div>`}).join(''):'<p class="muted">대회가 시작되면 대진표가 표시됩니다.</p>';
 
 const bracketStages=[...(s.history||[]),...(s.matches?.length?[{round:s.round,matches:s.matches}]:[])];
-const stageName=x=>{const slots=x.matches.length*2;return slots===2?'결승':slots===4?'4강 · 준결승':slots===8?'8강':slots===16?'16강':`${slots}강`};
-$('confirmedBracket').innerHTML=bracketStages.length?bracketStages.map(x=>`<div class="stageCol"><h3>${stageName(x)} <small class="muted">${x.matches.filter(m=>m.phase==='done').length}/${x.matches.length}경기 완료</small></h3><div class="bracketMatches">${x.matches.map((m,i)=>{const done=m.phase==='done';const winner=done?(m.winner===m.a?.id?m.a:m.b):null;const loser=done?(m.winner===m.a?.id?m.b:m.a):null;return `<div class="bracketRow"><div class="bracketMatchLine"><span class="bracketMatchNo">${i+1}경기</span><span class="${done&&winner?.id===m.a?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.a?.name||'-')}</span><span class="bracketVs">vs</span><span class="${done&&winner?.id===m.b?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.b?.name||'부전승')}</span></div><div class="bracketResult ${done?'bracketResultDone':''}">${done?`<span>✓ 진출</span> <strong>${esc(winner?.name||'-')}</strong>`:m.phase==='active'?'🔴 경기 진행 중':'경기 대기'}</div></div>`}).join('')}</div></div>`).join(''):'<p class="muted">대진 추첨 후 표시됩니다.</p>';
-$('chatBtn').disabled=!me||!s.chatEnabled;const box=$('chat'),nearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<50;box.innerHTML=s.chat.map(x=>`<div><b>${esc(x.name)}:</b> ${esc(x.message)}</div>`).join('');if(nearBottom)box.scrollTop=box.scrollHeight;
+const stageName=x=>roundName(x.matches.length);
+$('confirmedBracket').innerHTML=bracketStages.length?bracketStages.map(x=>`<div class="stageCol"><h3>${stageName(x)} <small class="muted">${x.matches.filter(m=>m.phase==='done').length}/${x.matches.length}경기 완료</small></h3><div class="bracketMatches">${x.matches.map((m,i)=>{const done=m.phase==='done';const winner=done?(m.winner===m.a?.id?m.a:m.b):null;const loser=done?(m.winner===m.a?.id?m.b:m.a):null;return `<div class="bracketRow"><div class="bracketMatchLine"><span class="bracketMatchNo">${matchTitle(x.matches.length,i)}</span><span class="${done&&winner?.id===m.a?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.a?.name||'-')}</span><span class="bracketVs">vs</span><span class="${done&&winner?.id===m.b?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.b?.name||'부전승')}</span></div><div class="bracketResult ${done?'bracketResultDone':''}">${done?`<span>✓ 진출</span> <strong>${esc(winner?.name||'-')}</strong>`:m.phase==='active'?'🔴 경기 진행 중':'경기 대기'}</div></div>`}).join('')}</div></div>`).join(''):'<p class="muted">대진 추첨 후 표시됩니다.</p>';
+$('chatRoomStatus').textContent=s.chatEnabled?'🟢 채팅방이 운영중입니다.':'🔴 현재 채팅방이 중단되었습니다.';$('chatRoomStatus').classList.toggle('stopped',!s.chatEnabled);$('chatInput').placeholder=s.chatEnabled?'메시지 (80자 이내)':'채팅이 중단되었습니다';$('chatBtn').disabled=!me||!s.chatEnabled;$('chatInput').disabled=!me||!s.chatEnabled;const box=$('chat'),nearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<50;box.innerHTML=(me?s.chat:[]).map(x=>`<div><b>${esc(x.name)}:</b> ${esc(x.message)}</div>`).join('');if(nearBottom)box.scrollTop=box.scrollHeight;
 if(s.phase!=='playing')selected=null;const done=(s.history||[]).flatMap(x=>x.matches).concat(s.matches).filter(m=>m.phase==='done'&&m.b&&m.amove&&m.bmove);const own=done.filter(m=>m.a?.id===me?.id||m.b?.id===me?.id).at(-1);const recent=own||done.at(-1);if(recent)cinema(recent);
+$('watchLiveNotice').classList.toggle('hide',!(s.phase==='playing'&&liveMatches.length>0));
+updateFocus(s);
 }
 function tick(){if(!state)return;const s=state,n=Math.max(0,Math.ceil((s.deadline-Date.now())/1000));$('watchTimer').textContent=s.phase==='playing'?(n>10?`선택 마감까지 ${n-10}초`:n>0?`결과 공개까지 ${n}초`:'결과 판정 중…'):s.phase==='ready'?'경기 시작 대기':s.phase==='finished'?'경기 종료':'';const mine=s.matches.find(m=>m.phase==='active'&&(m.a?.id===me?.id||m.b?.id===me?.id));const auto=mine&&((mine.a?.id===me?.id&&mine.autoA)||(mine.b?.id===me?.id&&mine.autoB));$('timer').innerHTML=n>10?`<span class="timerLabel">가위·바위·보를 선택하세요</span><span class="timerNumber">${n-10}초</span>`:n>0?`<span class="timerLabel">잠시 후 대결 결과가 공개됩니다.</span><span class="timerNumber">${n}초</span>`:s.phase==='playing'?'<span class="timerLabel">대결 결과를 공개합니다!</span>':'<span class="timerLabel">경기 종료</span>';document.querySelectorAll('[data-move]').forEach(b=>{if(n<=10)b.disabled=true})}document.querySelectorAll('[data-roster]').forEach(b=>b.addEventListener('click',()=>{rosterTab=b.dataset.roster;render()}));setInterval(tick,200);const es=new EventSource('/tournament/events');es.onmessage=e=>{const old=state;state=JSON.parse(e.data);if(old?.round!==state.round||old?.phase!==state.phase)selected=null;render()};es.onerror=()=>{$('status').textContent='재연결 중'};resume();
 </script></body></html>
