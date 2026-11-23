@@ -1,0 +1,16 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>매장 쿠폰 승인 · v0.13.0</title><link rel="stylesheet" href="/live.css"><link rel="stylesheet" href="/campaign.css"><link rel="stylesheet" href="/coupons.css"></head>
+<body><main><header><h1>매장 쿠폰 승인</h1><span>v0.13.0</span></header><p id="feedback" role="status"></p>
+<section id="loginPanel"><h2>직원 로그인</h2><form method="post" id="storeLogin" class="campaign-form">
+<label>직원 ID<input name="username" required autocomplete="username"></label>
+<label>비밀번호<input name="password" type="password" required autocomplete="current-password"></label><button>로그인</button></form></section>
+<div id="storePanel" hidden><section><h2 id="storeName">매장</h2><button id="storeLogout" type="button" class="secondary">로그아웃</button></section>
+<section><h2>코드 확인</h2><form method="post" id="verifyForm" class="campaign-form"><label>쿠폰 코드<input name="code" required autocomplete="off" maxlength="32"></label>
+<div class="campaign-controls"><button>쿠폰 확인</button><button type="button" id="scan" class="secondary" hidden>QR 스캔</button></div></form>
+<video id="scanner" playsinline muted hidden></video><div id="verification"></div>
+<form method="post" id="redeemForm" class="campaign-form" hidden>
+<label>할인 전 구매액 (원)<input name="beforeDiscount" inputmode="numeric" pattern="[0-9]{1,14}" required></label>
+<label>할인 후 실제 결제액 (원)<input name="paid" inputmode="numeric" pattern="[0-9]{1,14}" required></label><button>사용 승인</button>
+</form></section>
+<section><h2>이 매장의 승인 내역</h2><div id="storeHistory"></div></section></div>
+</main><script src="/campaign-ui.js" defer></script><script src="/store-coupons.js" defer></script></body></html>

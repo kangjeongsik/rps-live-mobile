@@ -1,0 +1,25 @@
+\set ON_ERROR_STOP on
+-- Run only after the separate database host and the approval have been checked.
+SELECT current_database() = :'staging_db'
+   AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f'))
+   AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+   AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')
+   AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'staging_role' AND rolname <> current_user
+     AND rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole)
+   AND :'staging_id' ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+   AS fresh_target
+\gset
+\if :fresh_target
+  \ir ../supabase-prizes.sql
+  \ir ../supabase-v0.7.31.sql
+  \ir ../supabase-v0.7.32.sql
+  \ir ../supabase-phase1-events.sql
+  \ir ../supabase-phase2-daily.sql
+  \ir ../supabase-phase3-campaigns.sql
+  \ir ../supabase-phase4-advertising.sql
+  \ir ../supabase-phase5-coupons-settlement.sql
+  \ir ../scripts/staging-identity.sql
+\else
+  DO $$ BEGIN RAISE EXCEPTION 'Target is not the expected empty staging database, or roles/identity are not ready'; END $$;
+\endif

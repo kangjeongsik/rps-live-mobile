@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>광고 운영 · v0.13.0</title>
+<link rel="stylesheet" href="/live.css"><link rel="stylesheet" href="/campaign.css"><link rel="stylesheet" href="/advertising.css">
+</head>
+<body id="advertising"><main>
+<header><h1>광고 운영</h1><span>v0.13.0</span></header>
+<nav><a href="/admin/campaigns">기업 이벤트 관리</a><a href="/admin/daily">DAILY 운영</a><a href="/admin/coupons">쿠폰·정산</a></nav>
+<p id="feedback" role="status"></p>
+<section>
+<label>광고주 <select id="companySelect"></select></label>
+<div id="overview"></div>
+<details><summary>신규 광고주 등록</summary>
+<form id="companyForm" class="campaign-form">
+<div class="campaign-grid">
+<label>기업명<input name="name" required maxlength="100"></label>
+<label>브랜드명<input name="brand" required maxlength="100"></label>
+<label>업종<input name="industry" required maxlength="100"></label>
+</div><button>광고주 등록</button>
+</form><a href="/admin/campaigns">기업 연락처와 상세 정보 관리</a>
+</details>
+</section>
+<nav id="workflow" aria-label="광고 운영 단계">
+<button type="button" data-step="consult">상담·추천</button>
+<button type="button" data-step="proposal">제안서</button>
+<button type="button" data-step="contract">광고비·계약</button>
+<button type="button" data-step="report">광고주 현황</button>
+<button type="button" data-step="catalog">상품·추천 규칙</button>
+</nav>
+
+<section id="consult" class="workflow-panel"><h2>상담·맞춤 광고상품 추천</h2>
+<div id="leadItems" class="work-list"></div>
+<form id="leadForm" class="campaign-form">
+<div class="campaign-grid">
+<label>업종<input name="industry" required maxlength="100"></label>
+<label>광고 목적<select name="goal"><option value="store_visit">매장 방문</option><option value="brand_awareness">브랜드 인지도</option><option value="engagement">반복 참여</option><option value="consultation">상담·예약</option><option value="other">기타</option></select></label>
+<label>예상 예산 (원)<input name="budget" inputmode="numeric" pattern="[0-9]{1,14}"></label>
+<label>희망 기간 (일)<input name="desiredDays" type="number" min="1" max="31"></label>
+</div>
+<label>광고 목적 상세<input name="goalNote" maxlength="500"></label>
+<label>대상 고객<input name="audience" maxlength="500"></label>
+<label>제공 가능한 혜택<textarea name="benefits" maxlength="1200"></textarea></label>
+<label><input name="hasStore" type="checkbox"> 오프라인 매장 있음</label>
+<label><input name="needsConsultation" type="checkbox"> 상담·예약 필요</label>
+<label>내부 상담 메모<textarea name="consultationNote" maxlength="3000"></textarea></label>
+<div class="campaign-controls"><button>상담 저장</button><button id="recommend" type="button">맞춤 광고상품 추천</button><button id="newLead" class="secondary" type="button">새 상담</button></div>
+</form>
+<div id="recommendations" class="campaign-records"></div>
+</section>
+
+<section id="proposal" class="workflow-panel" hidden><h2>제안서</h2>
+<div id="proposalItems" class="work-list"></div>
+<form id="proposalForm" class="campaign-form">
+<div class="campaign-grid">
+<label>연결 상담<select name="leadId" required></select></label><label>광고상품<select name="packageId" required></select></label>
+<label>캠페인 제목<input name="title" required maxlength="180"></label>
+<label>이벤트 유형<select name="eventType"><option value="quiz">브랜드·서비스 퀴즈</option><option value="mission">일일 미션</option><option value="rps">협찬 가위바위보</option></select></label>
+<label>참가 시작 (KST)<input name="opensAt" type="datetime-local" required></label>
+<label>게임 시작 (KST)<input name="startsAt" type="datetime-local" required></label>
+<label>종료 (KST)<input name="endsAt" type="datetime-local" required></label>
+<label>예상 참여 인원<input name="expectedReach" type="number" min="0" max="2147483647"></label>
+</div>
+<label>제안 설명<textarea name="description" maxlength="3000"></textarea></label>
+<label>추천 이유<textarea name="recommendationReason" maxlength="1500"></textarea></label>
+<label>권장 미션·퀴즈 구성 (줄마다 하나)<textarea name="activities" required></textarea></label>
+<label>혜택 안내<textarea name="benefitNotes" maxlength="1200"></textarea></label>
+<label>참가 조건<textarea name="joinTerms" maxlength="900"></textarea></label>
+<label>향후 쿠폰 정책 연결 ID<input name="couponPolicyId" placeholder="선택 사항"></label>
+<div class="campaign-controls">
+<button id="saveProposal">제안 초안 저장</button><button id="showPreview" type="button" class="secondary">제안서 미리보기</button>
+<button id="newProposal" type="button" class="secondary">새 제안</button>
+</div>
+</form><div id="proposalActions" class="campaign-controls"></div>
+<article id="preview" hidden></article>
+</section>
+
+<section id="contract" class="workflow-panel" hidden><h2>광고비 조건과 계약</h2>
+<div id="contractItems" class="work-list"></div>
+<form id="contractForm" class="campaign-form">
+<div class="campaign-grid">
+<label>연결 제안<select name="proposalId" required></select></label>
+<label>광고비 방식<select name="billingMode"><option value="fixed">고정형</option><option value="performance">성과형</option><option value="hybrid">혼합형</option></select></label>
+<label data-billing="fixed">고정 광고비 (원)<input name="fixedFee" inputmode="numeric" pattern="[0-9]{1,14}"></label>
+<label data-billing="performance">검증 성과 기준<select name="performanceBasis"><option value="validated_coupon">검증된 쿠폰 실사용 건수</option><option value="validated_purchase">확인된 구매액 비율</option></select></label>
+<label data-billing="coupon">실사용 건당 단가 (원)<input name="unitFee" inputmode="numeric" pattern="[0-9]{1,14}"></label>
+<label data-billing="coupon">예상 실사용 건수<input name="projectedCouponUses" type="number" min="0" max="2147483647"></label>
+<label data-billing="purchase">구매 수수료율 (%)<input name="purchaseRate" type="number" min="0.01" max="100" step="0.01"></label>
+<label data-billing="purchase">예상 확인 구매액 (원)<input name="projectedPurchase" inputmode="numeric" pattern="[0-9]{1,14}"></label>
+<label>광고비 상한 (원)<input name="cap" inputmode="numeric" pattern="[0-9]{1,14}"></label>
+<label>상한 적용 범위<select name="capScope"><option value="campaign">캠페인 전체</option><option value="period">정산 기간별</option></select></label>
+<label>요구 증빙<select name="evidenceLevel"><option value="store">매장 인증</option><option value="external">관리자가 확인한 외부 증빙</option></select></label>
+<label>VAT 세율 (%)<input name="vatRate" type="number" value="10" min="0" max="30" step="0.01"></label>
+<label>할인 부담 주체<select name="discountPayer"><option value="advertiser">광고주</option><option value="platform">플랫폼</option><option value="shared">분담</option><option value="none">해당 없음</option></select></label>
+<label>VAT 처리<select name="vatMode"><option value="exclusive">별도</option><option value="inclusive">포함</option><option value="exempt">면세 조건</option></select></label>
+<label>정산 주기<select name="settlementCycle"><option value="end_of_campaign">캠페인 종료 시</option><option value="monthly">월간</option><option value="weekly">주간</option></select></label>
+<label>계약 시작일<input name="contractStart" type="date" required></label>
+<label>계약 종료일<input name="contractEnd" type="date" required></label>
+</div>
+<p id="estimate">예상 광고비 미산정</p><p>실제 정산서는 쿠폰·정산 메뉴에서 관리합니다.</p>
+<div class="campaign-controls"><button id="saveContract">계약 조건 저장</button><button id="calcEstimate" type="button" class="secondary">예상 비용 계산</button><button id="newContract" type="button" class="secondary">새 계약 조건</button></div>
+</form>
+<div id="contractActions" class="campaign-controls"></div>
+</section>
+
+<section id="report" class="workflow-panel" hidden><h2>광고주별 실적</h2>
+<div id="companyReport" class="campaign-records"></div>
+</section>
+
+<section id="catalog" class="workflow-panel" hidden><h2>기본 상품과 추천 규칙</h2>
+<div id="packageItems" class="work-list"></div>
+<form id="packageForm" class="campaign-form">
+<div class="campaign-grid">
+<label>상품명<input name="name" required></label><label>이벤트 유형<select name="eventType"><option value="quiz">퀴즈</option><option value="mission">미션</option><option value="rps">가위바위보</option></select></label>
+<label>최소 기간<input name="minDays" type="number" min="1" max="31" required></label>
+<label>최대 기간<input name="maxDays" type="number" min="1" max="31" required></label>
+<label>기본 기간<input name="defaultDays" type="number" min="1" max="31" required></label>
+<label>권장 광고비 방식<select name="suggestedBilling"><option value="fixed">고정형</option><option value="performance">성과형</option><option value="hybrid">혼합형</option></select></label>
+</div>
+<label>설명<textarea name="description" required></textarea></label>
+<label>구성 (줄마다 하나)<textarea name="activities" required></textarea></label>
+<label><input name="enabled" type="checkbox"> 추천에 사용</label>
+<button>상품 변경 저장</button>
+</form>
+<h3>선택한 상품의 추천 규칙</h3><div id="ruleItems" class="work-list"></div>
+<form id="ruleForm" class="campaign-form">
+<div class="campaign-grid">
+<label>조건<select name="field"><option value="goal">광고 목적</option><option value="industry">업종</option><option value="has_store">매장 유무</option><option value="needs_consultation">상담 필요</option><option value="benefits">혜택</option><option value="duration">기간</option><option value="budget">최소 예산</option><option value="audience">대상 고객</option></select></label>
+<label>일치 값<input name="matchValue" required maxlength="300"></label>
+<label>가중치<input name="weight" type="number" min="1" max="1000" required></label>
+</div>
+<p>텍스트 조건의 대안은 |로 구분합니다. 목표 코드는 store_visit, brand_awareness, engagement, consultation, other를 사용합니다.</p>
+<label>추천 이유<textarea name="reason" required maxlength="500"></textarea></label>
+<label><input name="enabled" type="checkbox" checked> 규칙 사용</label>
+<div class="campaign-controls"><button>규칙 저장</button><button id="newRule" type="button" class="secondary">새 규칙</button></div>
+</form>
+</section>
+
+</main><script src="/campaign-ui.js" defer></script><script src="/advertising.js" defer></script></body></html>

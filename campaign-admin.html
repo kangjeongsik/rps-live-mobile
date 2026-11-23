@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기업 이벤트 운영 · v0.13.0</title>
+<link rel="stylesheet" href="/live.css"><link rel="stylesheet" href="/campaign.css"></head>
+<body id="campaignAdmin"><main>
+<header><h1>기업 이벤트 운영</h1><span>v0.13.0</span></header>
+<nav><a href="/tournament/admin">토너먼트 관리자</a><a href="/admin/daily">DAILY 운영</a><a href="/live">참가자 홈</a><a href="/admin/advertising">광고 운영</a></nav>
+<p id="feedback" role="status"></p>
+<section><h2>기업 관리</h2><div id="companies" class="campaign-controls"></div>
+<form id="companyForm" class="campaign-form">
+<div class="campaign-grid">
+<label>기업명<input name="name" required maxlength="100"></label><label>브랜드명<input name="brand" required maxlength="100"></label>
+<label>업종<input name="industry" required maxlength="100"></label><label>담당자<input name="contactName" maxlength="100"></label>
+<label>연락처<input name="contactInfo" maxlength="200"></label><label>홈페이지·매장 안내 URL<input name="websiteURL" type="url"></label>
+<label>로고 URL<input name="logoURL" type="url"></label><label>대표 이미지 URL<input name="imageURL" type="url"></label>
+</div>
+<label>기업 소개<textarea name="description" maxlength="3000"></textarea></label>
+<label>내부 관리자 메모<textarea name="internalNote" maxlength="2000"></textarea></label>
+<label><input name="enabled" type="checkbox" checked> 운영 중인 기업</label>
+<div class="campaign-controls"><button>기업 저장</button><button id="newCompany" type="button" class="secondary">새 기업</button></div>
+</form></section>
+<section><h2>이벤트 관리</h2><div id="campaignList" class="campaign-records"></div>
+<form id="campaignForm" class="campaign-form">
+<div class="campaign-grid">
+<label>기업<select name="companyId" required></select></label>
+<label>이벤트 유형<select name="type"><option value="quiz">당일 퀴즈</option><option value="mission">7일 미션 챌린지</option><option value="rps">협찬 가위바위보</option></select></label>
+<label>이벤트명<input name="title" required maxlength="180"></label><label>대표 이미지 URL<input name="imageURL" type="url"></label>
+<label>참가 시작 (KST)<input name="opensAt" type="datetime-local" required></label>
+<label>게임 시작 (KST)<input name="startsAt" type="datetime-local" required></label>
+<label>종료 (KST)<input name="endsAt" type="datetime-local" required></label>
+<label>예상 참여 규모<input name="estimatedReach" type="number" min="0"></label>
+</div>
+<label>설명<textarea name="description" maxlength="3000"></textarea></label>
+<label>참가 조건 안내<textarea name="joinTerms" maxlength="900"></textarea></label>
+<label>광고 목적<input name="adGoal" maxlength="300"></label>
+<label id="retryLabel"><input name="allowRetry" type="checkbox"> 퀴즈 재도전 허용</label>
+<div id="advertisingPlan" hidden></div>
+<label id="advertisingReview" hidden><input name="advertisingReviewed" type="checkbox"> 제안 구성과 캠페인 콘텐츠를 검토했습니다.</label>
+<div id="editor" class="campaign-records"></div>
+<button id="addQuestion" type="button" class="secondary">문제 추가</button>
+<div class="campaign-controls"><button>초안 저장</button><button id="previewButton" type="button" class="secondary">미리보기</button>
+<button id="newCampaign" type="button" class="secondary">새 이벤트</button></div>
+</form>
+<div id="preview" hidden></div>
+</section>
+<section id="operations" hidden><h2>운영 현황</h2><div id="operatingData"></div></section>
+</main><script src="/campaign-ui.js" defer></script><script src="/campaign-admin.js" defer></script></body>
+</html>

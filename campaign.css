@@ -1,0 +1,22 @@
+﻿.campaign-heading { display:flex; align-items:center; gap:.75rem }
+.campaign-logo { width:52px; height:52px; border-radius:.7rem; object-fit:contain; background:#0e192b; flex:none }
+.campaign-banner { display:block; max-width:100%; max-height:270px; width:100%; object-fit:cover; border-radius:.7rem; margin:.75rem 0 }
+.campaign-card { padding:.6rem 0 }
+.campaign-form { display:grid; gap:.65rem }
+#summary form { margin-top:.85rem }
+.campaign-form input:not([type=checkbox]):not([type=radio]), .campaign-form select, .campaign-form textarea,
+#summary input[type=text] { width:100%; min-width:0; background:#101b2d; color:inherit; border:1px solid #53678a;
+  border-radius:.4rem; padding:.5rem; font:inherit }
+.campaign-form textarea { min-height:4rem }
+.campaign-form label { display:block; overflow-wrap:anywhere }
+.campaign-form fieldset { min-width:0; border:1px solid #53678a; border-radius:.55rem; margin:0; padding:.65rem }
+.campaign-form fieldset label+label { margin-top:.5rem }
+.campaign-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem }
+.campaign-controls { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.8rem }
+.campaign-controls button.secondary { background:#344865 }
+.campaign-records { display:grid; gap:.4rem }
+.campaign-records article { overflow-wrap:anywhere }
+.campaign-records article p:last-child { margin-bottom:0 }
+#campaignAdmin main { max-width:900px }
+@media(max-width:560px){ .campaign-grid { grid-template-columns:1fr } }
+[hidden] { display:none !important }

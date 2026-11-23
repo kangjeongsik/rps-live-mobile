@@ -1,0 +1,14 @@
+﻿#advertising main { max-width:930px }
+#advertising #companySelect { margin:.3rem 0 .7rem }
+#advertising select { max-width:100%; color:inherit; background:#101b2d; border:1px solid #53678a;
+  border-radius:.4rem; padding:.5rem; font:inherit }
+#advertising #workflow button:not([aria-current]) { background:#344865 }
+#advertising .work-list { display:flex; flex-wrap:wrap; gap:.45rem; margin:.7rem 0 }
+#advertising .work-list button { min-height:40px; background:#344865; text-align:left; overflow-wrap:anywhere }
+#advertising .work-list button.active { background:#376fea }
+#advertising #preview { margin-top:1rem; padding:1rem; border:1px solid #506a8e; border-radius:.65rem; white-space:pre-line }
+#advertising #overview { margin-bottom:.7rem }
+#advertising form { margin-top:1rem }
+#advertising details { margin-top:.8rem }
+#advertising summary { cursor:pointer }
+#advertising .workflow-panel { min-width:0; overflow-wrap:anywhere }

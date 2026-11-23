@@ -1,0 +1,19 @@
+\set ON_ERROR_STOP on
+BEGIN READ ONLY;
+
+SELECT current_database() AS database_name,
+       current_user AS connected_role,
+       environment = 'staging' AND instance_id = :'staging_id'::uuid AS marker_matches,
+       NOT has_table_privilege('public.rps_staging_identity', 'INSERT,UPDATE,DELETE,TRUNCATE') AS marker_read_only
+  FROM public.rps_staging_identity;
+
+SELECT service_date, status,
+       scheduled_at AT TIME ZONE 'Asia/Seoul' AS scheduled_kst,
+       opened_at AT TIME ZONE 'Asia/Seoul' AS opened_kst,
+       started_at AT TIME ZONE 'Asia/Seoul' AS first_round_kst,
+       extract(epoch FROM opened_at - scheduled_at) AS seconds_to_open
+  FROM public.daily_occurrences
+ ORDER BY service_date DESC
+ LIMIT 10;
+
+COMMIT;

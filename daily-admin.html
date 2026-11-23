@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAILY 운영 · v0.13.0</title><link rel="stylesheet" href="/live.css">
+</head>
+<body><main>
+<header><h1>DAILY 운영</h1><span>v0.13.0</span></header>
+<nav aria-label="운영"><a href="/tournament/admin">토너먼트 관리자</a><a href="/admin">진행자 대결 관리자</a><a href="/live">참가자 홈</a><a href="/admin/campaigns">기업 이벤트</a></nav>
+<p id="feedback" role="status"></p>
+<section><h2>DAILY 일정</h2><p id="schedule"></p><form id="settings">
+  <label>최소 참가자 <input name="minPlayers" type="number" min="2" max="200" required></label>
+  <label>준비 시간(초) <input name="preparationSeconds" type="number" min="1" max="600" required></label>
+  <label>대기 제한(분) <input name="waitMinutes" type="number" min="1" max="180" required></label>
+  <button>새 회차 설정 저장</button>
+</form><p>설정은 이후에 생성되는 회차부터 적용됩니다.</p><button id="run">일정 확인 및 실행</button></section>
+<section><h2>DAILY 회차</h2><div id="rounds"></div></section>
+<section><h2>일정 실행 기록</h2><ul id="executions"></ul></section>
+<section><h2>푸시 발송 결과</h2><ul id="notifications"></ul></section>
+</main><script src="/daily-admin.js" defer></script></body></html>

@@ -1,0 +1,16 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>쿠폰·정산 운영 · v0.13.0</title><link rel="stylesheet" href="/live.css"><link rel="stylesheet" href="/campaign.css"><link rel="stylesheet" href="/coupons.css"></head>
+<body id="couponAdmin"><main><header><h1>쿠폰·정산 운영</h1><span>v0.13.0</span></header>
+<nav><a href="/admin/advertising">광고 운영</a><a href="/admin/campaigns">기업 이벤트</a><a href="/store/coupons">매장 화면</a></nav>
+<p id="feedback" role="status"></p><section><label>기업 <select id="companies"></select></label><p id="couponStats"></p></section>
+<nav id="couponTabs"><button data-tab="policies">쿠폰 정책</button><button data-tab="stores">매장·직원</button>
+<button data-tab="trades">발급·승인·환불</button><button data-tab="settlements">정산</button></nav>
+<section id="policies" class="coupon-panel"><h2>쿠폰 정책</h2><div id="policyList" class="campaign-controls"></div><div id="policyEditor"></div></section>
+<section id="stores" class="coupon-panel" hidden><h2>매장·직원 계정</h2><h3>매장</h3><div id="storeList" class="campaign-controls"></div>
+<div id="storeEditor"></div><h3>직원</h3><div id="staffList" class="campaign-controls"></div><div id="staffEditor"></div></section>
+<section id="trades" class="coupon-panel" hidden><h2>발급 현황</h2><div id="issueList"></div><h2>매장 승인 내역</h2><div id="tradeList"></div>
+<h2>취소·환불 기록</h2><div id="adjustmentList"></div></section>
+<section id="settlements" class="coupon-panel" hidden><h2>광고비 정산</h2>
+<label>확정된 계약 <select id="contracts"></select></label><div class="campaign-controls"><button id="collect">다음 미확정 기간 집계</button></div>
+<p>정산 기간은 한국시간 기준이며 종료일은 포함하지 않습니다. CSV는 청구 예정액을 표시합니다.</p><div id="settlementList" class="campaign-controls"></div><div id="settlementDetail"></div></section>
+</main><script src="/campaign-ui.js" defer></script><script src="/coupon-admin.js" defer></script></body></html>
