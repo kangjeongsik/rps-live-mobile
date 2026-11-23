@@ -93,7 +93,8 @@ function initialSnapshot(mode='nickname',duration=20,autoDelay=10,chatEnabled=tr
     game:{mode,history:[],phase:'lobby',round:0,matches:[],champion:null,deadline:0,
       duration,notice:'토너먼트 참가자를 모집 중입니다.'},
     players:[],tokens:[],codes:[],seq:0,chat:[],chatEnabled,customNotice:'',
-    autoMode:false,autoDelay,autoNextAt:0,revealed:false
+    autoMode:false,autoDelay,autoNextAt:0,revealed:false,
+    eventMeta:{edition:null,title:'',gameType:'rps',scheduledAt:null,registrationOpen:true}
   };
 }
 function send(res,status,obj){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(obj))}
@@ -102,6 +103,7 @@ function createTournament(row,client){
 const eventId=row.id,joinCode=row.join_code;
 const saved=row.snapshot.game?structuredClone(row.snapshot):initialSnapshot();
 const {game:t}=saved;
+const eventMeta={edition:null,title:'',gameType:'rps',scheduledAt:null,registrationOpen:true,...saved.eventMeta};
 let dailyRow=row.daily;
 let campaign=row.campaign;
 const players=new Map(saved.players),tokens=new Map(saved.tokens),codes=new Map(saved.codes);
@@ -120,7 +122,7 @@ function player(req){return players.get(tokens.get(deviceHash((req.headers.autho
 function publicPlayer(p){return p?{id:p.id,name:maskProfanity(p.name),alive:p.alive}:null}
 function state(){const closedStatus=dailyRow&&['cancelled','expired'].includes(dailyRow.status)?dailyRow.status:
   campaign&&['paused','cancelled','completed'].includes(campaign.status)&&t.phase!=='finished'?campaign.status:null;
- const closed=Boolean(closedStatus);const present=[...players.values()].filter(p=>!p.left);return {players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:closed?closedStatus:t.phase,round:t.round,deadline:closed?0:t.deadline,duration:t.duration,stage:closed?closedStatus:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,prize:publicPrize(row.prizes_enabled),joinPath:currentJoin(),eventId,roundType:stageLabel(t.matches),daily:dailyRow?{status:dailyRow.status,date:dailyRow.date_key,scheduledAt:dailyRow.scheduled_at}:null,
+ const closed=Boolean(closedStatus);const present=[...players.values()].filter(p=>!p.left);return {eventMeta:{...eventMeta},players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:closed?closedStatus:t.phase,round:t.round,deadline:closed?0:t.deadline,duration:t.duration,stage:closed?closedStatus:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,prize:publicPrize(row.prizes_enabled),joinPath:currentJoin(),eventId,roundType:stageLabel(t.matches),daily:dailyRow?{status:dailyRow.status,date:dailyRow.date_key,scheduledAt:dailyRow.scheduled_at}:null,
  campaign:campaign?{id:campaign.id,status:campaign.status,title:campaign.title,description:campaign.description,
    brand:campaign.brand,logoURL:campaign.logo_url,joinTerms:campaign.join_terms}:null}}
 function stageLabel(matches){const real=matches.filter(m=>!!m.b).length;const hasByes=matches.some(m=>!m.b);return hasByes?'예선':real===1?'결승':real===2?'4강':`${real*2}강`}
@@ -161,7 +163,7 @@ function finishRound(){if(t.phase!=='playing')throw Error('진행 중인 경기�
 function advance(){t.history.push({round:t.round,roundType:stageLabel(t.matches),matches:t.matches.map(m=>({a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.amove,bmove:m.bmove}))});const winners=t.matches.map(m=>m.winner||(!m.b?m.a:null)).filter(Boolean);if(winners.length===1){t.champion=winners[0];t.phase='finished';autoNextAt=0;t.notice=`🏆 ${players.get(t.champion).name} 최종 우승!`;postSystemChat(`🏆 최종 우승: ${resultName(t.champion)}! 축하합니다!`);return}if(winners.length<2)throw Error('대진표에 진행할 참가자가 없습니다');t.round++;t.matches=[];for(let i=0;i<winners.length;i+=2)t.matches.push(nextMatch(winners[i],winners[i+1]||null));t.phase='ready';t.notice=`다음 라운드 준비 · ${winners.length}명 진출`}
 function snapshot(){
   return {game:t,players:[...players],tokens:[...tokens],codes:[...codes],seq,chat,
-    chatEnabled,customNotice,autoMode,autoDelay,autoNextAt,revealed};
+    chatEnabled,customNotice,autoMode,autoDelay,autoNextAt,revealed,eventMeta};
 }
 function nextActionAt(){
   if(dailyRow&&terminal.has(dailyRow.status))return 0;
@@ -272,7 +274,7 @@ if(dailyRow&&b.action==='admin'&&authorized(req)){
       (terminal.has(dailyRow.status)||(!dailyRow.started_at&&['start','open','close','auto'].includes(b.cmd))))
     return reply(409,{error:'DAILY 회차의 시작과 중단은 DAILY 관리 화면에서 제어합니다'});
 }
-if(b.action==='join'){if(b.joinCode!==joinCode)return reply(403,{error:'만료되거나 잘못된 대회 링크입니다. 현재 초대 링크를 이용해주세요'});if(!validDevice(b.deviceId))return reply(400,{error:'브라우저 식별정보를 확인할 수 없습니다'});const blocked=await dbQuery(`select 1 from rps_device_blocks where device_hash=$1 and (expires_at is null or expires_at>now()) limit 1`,[deviceHash(b.deviceId)]);if(blocked.length)return reply(403,{error:'운영 규칙에 따라 참가가 제한된 브라우저입니다'});
+if(b.action==='join'){if(!dailyRow&&!campaign&&eventMeta.registrationOpen===false)return reply(409,{error:'현재 대회를 준비 중입니다. 참가 모집이 시작되면 신청해 주세요'});if(b.joinCode!==joinCode)return reply(403,{error:'만료되거나 잘못된 대회 링크입니다. 현재 초대 링크를 이용해주세요'});if(!validDevice(b.deviceId))return reply(400,{error:'브라우저 식별정보를 확인할 수 없습니다'});const blocked=await dbQuery(`select 1 from rps_device_blocks where device_hash=$1 and (expires_at is null or expires_at>now()) limit 1`,[deviceHash(b.deviceId)]);if(blocked.length)return reply(403,{error:'운영 규칙에 따라 참가가 제한된 브라우저입니다'});
 if(dailyRow){
   const hash=deviceHash(b.deviceId);
   const existing=[...players.values()].find(entry=>entry.deviceHash===hash&&!entry.left);
@@ -321,6 +323,10 @@ if(b.action==='winnerAccess'){const access=String(b.access||'');if(!/^[a-f0-9]{6
 if(b.action==='winnerClaim'){const access=String(b.access||'');const rows=await dbQuery('select event_id,player_id,player_name from rps_winners where access_hash=$1',[deviceHash(access)]);if(!rows.length)return reply(403,{error:'우승 수령 링크가 올바르지 않습니다'});const w=rows[0];const type=String(b.type||'');if(!PRIZE_TYPES[type])return reply(400,{error:'상품 종류를 선택하세요'});const result=await claimCard(client,type,{id:w.player_id,name:w.player_name},w.event_id);return reply(result.error?409:200,result)}
 if(b.action==='inquiry'){const content=String(b.message||'').trim();const category=String(b.category||'other');if(!['prize','code','bug','idea','other'].includes(category)||content.length<2||content.length>1000)return reply(400,{error:'문의 유형과 내용(2~1000자)을 확인하세요'});let owner=null;const access=String(b.access||'');if(/^[a-f0-9]{64}$/.test(access)){const r=await dbQuery('select event_id,player_id,player_name from rps_winners where access_hash=$1',[deviceHash(access)]);owner=r[0]||null}if(!owner&&!validDevice(b.deviceId))return reply(400,{error:'브라우저 식별정보가 없습니다'});const ownerHash=owner?deviceHash(access):deviceHash(b.deviceId);const id=crypto.randomUUID();await dbQuery(`insert into rps_inquiries(id,owner_hash,event_id,player_name,category,message) values($1,$2,$3,$4,$5,$6)`,[id,ownerHash,owner?.event_id||eventId,owner?.player_name||p?.name||'참가자',category,content]);return reply(200,{ok:true,id})}
 if(b.action==='myInquiries'){const access=String(b.access||'');const ownerHash=/^[a-f0-9]{64}$/.test(access)?deviceHash(access):validDevice(b.deviceId)?deviceHash(b.deviceId):null;if(!ownerHash)return reply(400,{error:'접근 정보가 없습니다'});const rows=await dbQuery(`select id,category,message,reply,created_at from rps_inquiries where owner_hash=$1 order by created_at desc limit 30`,[ownerHash]);return reply(200,{inquiries:rows})}
+if(b.action==='publicWinners'){
+ const rows=await dbQuery(`select w.event_id,w.player_name,w.created_at from rps_winners w order by w.created_at desc limit 30`);
+ return reply(200,{winners:rows.map(x=>({eventId:x.event_id,name:maskProfanity(x.player_name),createdAt:x.created_at}))});
+}
 if(b.action==='winnerHistory'){if(!authorized(req))return reply(401,{error:'관리자 인증이 필요합니다'});const rows=await dbQuery(`select w.event_id,w.player_id,w.player_name,w.device_hash,w.created_at,e.created_at as event_created_at,a.claimed_at,c.type as prize_type,c.serial as prize_serial,(select count(*)::int from rps_winners w2 where w2.device_hash=w.device_hash and w.device_hash is not null) as wins from rps_winners w left join rps_events e on e.id=w.event_id left join rps_prize_awards a on a.event_id=w.event_id and a.player_id=w.player_id left join rps_prize_cards c on c.id=a.card_id order by w.created_at desc limit 300`);return reply(200,{winners:rows.map(x=>({...x,deviceId:x.device_hash?'…'+x.device_hash.slice(-10):'기록 없음',device_hash:undefined,prizeName:x.prize_type?PRIZE_TYPES[x.prize_type]:null}))})}
 if(b.action==='adminExtra'){if(!authorized(req))return reply(401,{error:'관리자 인증이 필요합니다'});const blocks=await dbQuery(`select device_hash,reason,expires_at,created_at from rps_device_blocks order by created_at desc limit 100`);const inquiries=await dbQuery(`select id,player_name,category,message,reply,created_at from rps_inquiries order by created_at desc limit 100`);return reply(200,{blocks,inquiries,joinPath:currentJoin()})}
 if(b.action==='resume')return p&&!p.left?reply(200,{id:p.id,name:p.name,alive:p.alive}):reply(401,{error:'다시 참가해주세요'});
@@ -367,8 +373,20 @@ if(b.action==='admin'){if(!authorized(req))return reply(401,{error:'로그인이
  }else if(b.cmd==='blockPlayer'){const target=players.get(String(b.playerId||''));if(!target?.deviceHash)throw Error('차단할 참가자 기기 정보가 없습니다');const days=Number(b.days);if(![7,30,0].includes(days))throw Error('차단 기간 오류');await dbQuery(`insert into rps_device_blocks(device_hash,reason,expires_at) values($1,$2,$3) on conflict(device_hash) do update set reason=$2,expires_at=$3`,[target.deviceHash,String(b.reason||'운영 규칙 위반').slice(0,100),days?new Date(Date.now()+days*86400000):null]);if(t.phase==='lobby'){players.delete(target.id);for(const [tok,pid] of tokens)if(pid===target.id)tokens.delete(tok)}
 }else if(b.cmd==='unblock'){await dbQuery('delete from rps_device_blocks where device_hash=$1',[String(b.hash||'')]);
 }else if(b.cmd==='replyInquiry'){await dbQuery('update rps_inquiries set reply=$2 where id=$1',[String(b.id||''),String(b.reply||'').slice(0,1000)]);
-}else if(b.cmd==='notifyRegistration'){const result=await sendPush('✊ 가위바위보 LIVE','새로운 대회 참가 신청이 시작됐습니다!',currentJoin(),dbQuery);return reply(200,{ok:true,...result});
-}else if(b.cmd==='notifyStarting'){const result=await sendPush('⏰ 가위바위보 LIVE','대회 시작 10분 전입니다. 참가 화면으로 이동하세요.',currentJoin(),dbQuery);return reply(200,{ok:true,...result});
+}else if(b.cmd==='notifyRegistration'){const result=await sendPush('✊ 가위바위보 LIVE','새로운 대회 참가 신청이 시작됐습니다!','/tournament',dbQuery);return reply(200,{ok:true,...result});
+}else if(b.cmd==='notifyStarting'){const result=await sendPush('⏰ 가위바위보 LIVE','대회 시작 10분 전입니다. 참가 화면으로 이동하세요.','/tournament',dbQuery);return reply(200,{ok:true,...result});
+}else if(b.cmd==='setEventMeta'){
+ if(dailyRow||campaign)throw Error('DAILY 및 기업 이벤트 일정은 해당 관리 화면에서 설정하세요');
+ const edition=b.edition===''||b.edition===null||b.edition===undefined?null:Number(b.edition);
+ if(edition!==null&&(!Number.isInteger(edition)||edition<1||edition>99999))throw Error('회차는 1~99999 사이로 입력하세요');
+ const title=String(b.title||'').trim();
+ if(title.length>80)throw Error('대회명은 80자 이내로 입력하세요');
+ const scheduledAt=b.scheduledAt?String(b.scheduledAt):null;
+ if(scheduledAt&&(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(scheduledAt)||!Number.isFinite(Date.parse(scheduledAt+'+09:00'))))throw Error('개최 날짜와 시간을 확인하세요');
+ if(b.registrationOpen===true&&t.phase!=='lobby')throw Error('참가 모집은 대기 중인 대회에서만 설정할 수 있습니다');
+ eventMeta.edition=edition;eventMeta.title=title;eventMeta.scheduledAt=scheduledAt;
+ eventMeta.registrationOpen=b.registrationOpen===true;
+ eventMeta.gameType='rps';
 }else if(b.cmd==='codes'){if(t.phase!=='lobby'||t.mode!=='verified')throw Error('인증코드 모드 대기 중에만 발급 가능합니다');const count=Number(b.count||10);if(!Number.isInteger(count)||count<1||count>200||codes.size+count>200)throw Error('발급 수량은 최대 200개입니다');const issued=[];for(let i=0;i<count;i++){let code;do{code=crypto.randomBytes(5).toString('hex').toUpperCase()}while(codes.has(code));codes.set(code,false);issued.push(code)}markChanged();return reply(200,{ok:true,codes:issued})}else if(b.cmd==='start'){if(t.phase!=='lobby')throw Error('이미 시작했습니다');start()}else if(b.cmd==='auto'){
  const enabled=b.enabled===true;
  const delay=Number(b.delay);
