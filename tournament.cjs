@@ -94,7 +94,7 @@ function initialSnapshot(mode='nickname',duration=20,autoDelay=10,chatEnabled=tr
       duration,notice:'토너먼트 참가자를 모집 중입니다.'},
     players:[],tokens:[],codes:[],seq:0,chat:[],chatEnabled,customNotice:'',
     autoMode:false,autoDelay,autoNextAt:0,revealed:false,
-    eventMeta:{edition:null,title:'',gameType:'rps',scheduledAt:null,registrationOpen:true}
+    eventMeta:{edition:null,title:'',gameType:'rps',scheduledAt:null,registrationOpen:true},reservations:[]
   };
 }
 function send(res,status,obj){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(obj))}
@@ -104,6 +104,7 @@ const eventId=row.id,joinCode=row.join_code;
 const saved=row.snapshot.game?structuredClone(row.snapshot):initialSnapshot();
 const {game:t}=saved;
 const eventMeta={edition:null,title:'',gameType:'rps',scheduledAt:null,registrationOpen:true,...saved.eventMeta};
+const reservations=new Map(Array.isArray(saved.reservations)?saved.reservations:[]);
 let dailyRow=row.daily;
 let campaign=row.campaign;
 const players=new Map(saved.players),tokens=new Map(saved.tokens),codes=new Map(saved.codes);
@@ -122,7 +123,7 @@ function player(req){return players.get(tokens.get(deviceHash((req.headers.autho
 function publicPlayer(p){return p?{id:p.id,name:maskProfanity(p.name),alive:p.alive}:null}
 function state(){const closedStatus=dailyRow&&['cancelled','expired'].includes(dailyRow.status)?dailyRow.status:
   campaign&&['paused','cancelled','completed'].includes(campaign.status)&&t.phase!=='finished'?campaign.status:null;
- const closed=Boolean(closedStatus);const present=[...players.values()].filter(p=>!p.left);return {eventMeta:{...eventMeta},players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:closed?closedStatus:t.phase,round:t.round,deadline:closed?0:t.deadline,duration:t.duration,stage:closed?closedStatus:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,prize:publicPrize(row.prizes_enabled),joinPath:currentJoin(),eventId,roundType:stageLabel(t.matches),daily:dailyRow?{status:dailyRow.status,date:dailyRow.date_key,scheduledAt:dailyRow.scheduled_at}:null,
+ const closed=Boolean(closedStatus);const present=[...players.values()].filter(p=>!p.left);return {eventMeta:{...eventMeta},reservationCount:reservations.size,players:present.map(publicPlayer),history:t.history||[],mode:t.mode,phase:closed?closedStatus:t.phase,round:t.round,deadline:closed?0:t.deadline,duration:t.duration,stage:closed?closedStatus:t.phase==='playing'?(Date.now()>=t.deadline-10000?'reveal':'select'):t.phase,notice:t.notice,customNotice,champion:publicPlayer(players.get(t.champion)),participants:present.length,alive:present.filter(p=>p.alive).length,matches:t.matches.map(m=>({id:m.id,a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.phase==='done'?m.amove:null,bmove:m.phase==='done'?m.bmove:null,submittedA:!!m.amove,submittedB:!!m.bmove,autoA:!!m.autoA,autoB:!!m.autoB})),chat:chat.slice(-60),chatEnabled,autoMode,autoDelay,autoNextAt,prize:publicPrize(row.prizes_enabled),joinPath:currentJoin(),eventId,roundType:stageLabel(t.matches),daily:dailyRow?{status:dailyRow.status,date:dailyRow.date_key,scheduledAt:dailyRow.scheduled_at}:null,
  campaign:campaign?{id:campaign.id,status:campaign.status,title:campaign.title,description:campaign.description,
    brand:campaign.brand,logoURL:campaign.logo_url,joinTerms:campaign.join_terms}:null}}
 function stageLabel(matches){const real=matches.filter(m=>!!m.b).length;const hasByes=matches.some(m=>!m.b);return hasByes?'예선':real===1?'결승':real===2?'4강':`${real*2}강`}
@@ -163,7 +164,7 @@ function finishRound(){if(t.phase!=='playing')throw Error('진행 중인 경기�
 function advance(){t.history.push({round:t.round,roundType:stageLabel(t.matches),matches:t.matches.map(m=>({a:publicPlayer(players.get(m.a)),b:publicPlayer(players.get(m.b)),winner:m.winner,phase:m.phase,amove:m.amove,bmove:m.bmove}))});const winners=t.matches.map(m=>m.winner||(!m.b?m.a:null)).filter(Boolean);if(winners.length===1){t.champion=winners[0];t.phase='finished';autoNextAt=0;t.notice=`🏆 ${players.get(t.champion).name} 최종 우승!`;postSystemChat(`🏆 최종 우승: ${resultName(t.champion)}! 축하합니다!`);return}if(winners.length<2)throw Error('대진표에 진행할 참가자가 없습니다');t.round++;t.matches=[];for(let i=0;i<winners.length;i+=2)t.matches.push(nextMatch(winners[i],winners[i+1]||null));t.phase='ready';t.notice=`다음 라운드 준비 · ${winners.length}명 진출`}
 function snapshot(){
   return {game:t,players:[...players],tokens:[...tokens],codes:[...codes],seq,chat,
-    chatEnabled,customNotice,autoMode,autoDelay,autoNextAt,revealed,eventMeta};
+    chatEnabled,customNotice,autoMode,autoDelay,autoNextAt,revealed,eventMeta,reservations:[...reservations]};
 }
 function nextActionAt(){
   if(dailyRow&&terminal.has(dailyRow.status))return 0;
@@ -274,6 +275,28 @@ if(dailyRow&&b.action==='admin'&&authorized(req)){
       (terminal.has(dailyRow.status)||(!dailyRow.started_at&&['start','open','close','auto'].includes(b.cmd))))
     return reply(409,{error:'DAILY 회차의 시작과 중단은 DAILY 관리 화면에서 제어합니다'});
 }
+if(['reservationStatus','reserveNext','cancelReservation'].includes(b.action)){
+ if(dailyRow||campaign)return reply(409,{error:'사전예약은 기본 챌린지 대회에서만 지원합니다'});
+ if(!validDevice(b.deviceId))return reply(400,{error:'브라우저 식별정보를 확인할 수 없습니다'});
+ const hash=deviceHash(b.deviceId),existing=reservations.get(hash);
+ if(b.action==='reservationStatus')return reply(200,{reserved:!!existing,nickname:existing?.nickname||'',reservationCount:reservations.size});
+ if(t.phase!=='lobby')return reply(409,{error:'현재 대회 사전예약 접수 기간이 아닙니다'});
+ if(b.action==='cancelReservation'){
+  if(existing){reservations.delete(hash);markChanged()}
+  return reply(200,{ok:true,reserved:false,reservationCount:reservations.size});
+ }
+ const nickname=String(b.nickname||'').trim();
+ if(!/^[가-힣a-zA-Z0-9_ ]{2,12}$/.test(nickname))return reply(400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});
+ if(b.agree!==true)return reply(400,{error:'사전예약 안내에 동의해 주세요'});
+ if([...reservations].some(([id,r])=>id!==hash&&r.nickname.toLowerCase()===nickname.toLowerCase()))return reply(409,{error:'이미 예약된 닉네임입니다'});
+ if([...players.values()].some(p=>p.deviceHash===hash&&!p.left))return reply(409,{error:'이미 이번 대회에 참가했습니다'});
+ reservations.set(hash,{nickname,createdAt:existing?.createdAt||Date.now()});markChanged();
+ return reply(200,{ok:true,reserved:true,nickname,reservationCount:reservations.size});
+}
+if(b.action==='reservationList'){
+ if(!authorized(req))return reply(401,{error:'관리자 인증이 필요합니다'});
+ return reply(200,{reservations:[...reservations.values()].map(x=>({nickname:maskProfanity(x.nickname),createdAt:x.createdAt})),count:reservations.size});
+}
 if(b.action==='join'){if(!dailyRow&&!campaign&&eventMeta.registrationOpen===false)return reply(409,{error:'현재 대회를 준비 중입니다. 참가 모집이 시작되면 신청해 주세요'});if(b.joinCode!==joinCode)return reply(403,{error:'만료되거나 잘못된 대회 링크입니다. 현재 초대 링크를 이용해주세요'});if(!validDevice(b.deviceId))return reply(400,{error:'브라우저 식별정보를 확인할 수 없습니다'});const blocked=await dbQuery(`select 1 from rps_device_blocks where device_hash=$1 and (expires_at is null or expires_at>now()) limit 1`,[deviceHash(b.deviceId)]);if(blocked.length)return reply(403,{error:'운영 규칙에 따라 참가가 제한된 브라우저입니다'});
 if(dailyRow){
   const hash=deviceHash(b.deviceId);
@@ -292,7 +315,7 @@ if(campaign){
     return reply(409,{error:'이미 참가했습니다. 기존 참가 세션으로 접속하세요'});
   }
 }
-if(t.phase!=='lobby')return reply(409,{error:'참가 신청이 마감되었습니다'});if(players.size>=200)return reply(409,{error:'최대 200명까지 참가할 수 있습니다'});let name;if(t.mode==='verified'){const code=String(b.code||'').trim().toUpperCase();if(!codes.has(code)||codes.get(code))return reply(403,{error:'사용할 수 없는 인증코드입니다'});name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return reply(400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return reply(409,{error:'이미 사용 중인 닉네임입니다'});codes.set(code,true)}else if(t.mode==='nickname'){name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return reply(400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if(b.agree!==true)return reply(400,{error:'참가 안내에 동의해야 합니다'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return reply(409,{error:'이미 사용 중인 닉네임입니다'})}else name=`PLAYER ${String(seq+1).padStart(3,'0')}`;const id=`P${++seq}`,token=rand();players.set(id,{id,name,alive:true,deviceHash:deviceHash(b.deviceId)});tokens.set(deviceHash(token),id);if(dailyRow)await daily.participant(client,dailyRow,deviceHash(b.deviceId),id,new Date());if(campaign)await campaigns.enroll(client,campaign,deviceHash(b.deviceId),name,campaignClock(),id);markChanged();return reply(200,{token,id,name})}
+if(t.phase!=='lobby')return reply(409,{error:'참가 신청이 마감되었습니다'});if(players.size>=200)return reply(409,{error:'최대 200명까지 참가할 수 있습니다'});let name;if(t.mode==='verified'){const code=String(b.code||'').trim().toUpperCase();if(!codes.has(code)||codes.get(code))return reply(403,{error:'사용할 수 없는 인증코드입니다'});name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return reply(400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return reply(409,{error:'이미 사용 중인 닉네임입니다'});codes.set(code,true)}else if(t.mode==='nickname'){name=String(b.nickname||'').trim();if(name.length<2||name.length>12||!/^[가-힣a-zA-Z0-9_ ]+$/.test(name))return reply(400,{error:'닉네임은 한글·영문·숫자 2~12자로 입력해주세요'});if(b.agree!==true)return reply(400,{error:'참가 안내에 동의해야 합니다'});if([...players.values()].some(x=>x.name.toLowerCase()===name.toLowerCase()))return reply(409,{error:'이미 사용 중인 닉네임입니다'})}else name=`PLAYER ${String(seq+1).padStart(3,'0')}`;const id=`P${++seq}`,token=rand();players.set(id,{id,name,alive:true,deviceHash:deviceHash(b.deviceId)});reservations.delete(deviceHash(b.deviceId));tokens.set(deviceHash(token),id);if(dailyRow)await daily.participant(client,dailyRow,deviceHash(b.deviceId),id,new Date());if(campaign)await campaigns.enroll(client,campaign,deviceHash(b.deviceId),name,campaignClock(),id);markChanged();return reply(200,{token,id,name})}
 if(b.action==='config'){return reply(200,{joinPath:currentJoin(),vapidPublicKey:process.env.VAPID_PUBLIC_KEY||'',pushAvailable:!!(process.env.VAPID_PUBLIC_KEY&&process.env.VAPID_PRIVATE_KEY)})}
 if(b.action==='pushSubscribe'){
   if(!validDevice(b.deviceId))return reply(400,{error:'기기 ID가 없습니다'});
