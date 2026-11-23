@@ -89,7 +89,38 @@ body.gameFocus.focusSpectator #matches{display:none}
 body.gameFocus.focusPlayer #myPanel #exitBtn{display:inline-flex}
 body.gameFocus.focusSpectator #watchPanel{overflow-y:auto}
 @media(max-width:760px){.liveMatchItem{padding:9px}.liveMatchPair{gap:5px}.liveMatchPair>div{padding:8px 3px}}
-</style></head><body><div id="focusShade" class="focusShade hide" aria-hidden="true"></div><main class="wrap"><header><div><div class="tag">● LIVE TOURNAMENT v0.13.0</div><h1>✊ 가위바위보 토너먼트</h1></div><span id="status" class="pill">접속 중</span></header><div class="layout"><div class="mainColumn"><section><div id="sponsorBanner" class="hide">
+</style><style>
+/* Tournament result responsive layout */
+#myOutcome,
+#myMatch,
+#personalResult,
+#cinemaText {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+#personalResult,
+#cinemaText {
+  font-size: clamp(16px, 4vw, 24px);
+}
+
+@media (max-width: 480px) {
+  #myOutcome {
+    font-size: 16px;
+    padding: 12px 10px;
+  }
+
+  #personalResult,
+  #cinemaText {
+    font-size: 17px;
+  }
+}
+</style>
+</head><body><div id="focusShade" class="focusShade hide" aria-hidden="true"></div><main class="wrap"><header><div><div class="tag">● LIVE TOURNAMENT v0.13.0</div><h1>✊ 가위바위보 토너먼트</h1></div><span id="status" class="pill">접속 중</span></header><div class="layout"><div class="mainColumn"><section><div id="sponsorBanner" class="hide">
 <img id="sponsorLogo" class="hide" alt="" referrerpolicy="no-referrer" style="max-width:76px;max-height:76px">
 <h2 id="sponsorTitle"></h2><p id="sponsorDescription"></p><p id="sponsorTerms"></p>
 </div><div id="notice" class="notice">연결 중...</div><p class="muted" id="stats"></p></section><section id="extrasPanel"><h2>🔔 알림 · 초대 · 문의</h2><p class="muted">브라우저 식별자를 저장해 차단 여부를 확인합니다. 푸시 알림은 별도로 허용해야 합니다.</p><div class="row"><button id="pushOn">알림 받기</button><button id="pushOff">알림 해제</button><button id="invite">친구 초대하기</button><button id="askAdmin">관리자 문의</button></div><p id="extraStatus" class="muted"></p><div id="inquiryArea" class="hide"><select id="inquiryCategory"><option value="prize">상품 수령</option><option value="code">상품 코드 사용 문제</option><option value="bug">게임 오류</option><option value="idea">개선 제안</option><option value="other">기타</option></select><textarea id="inquiryMessage" placeholder="문의 내용을 입력하세요" maxlength="1000"></textarea><button id="sendInquiry">문의 접수</button><button id="viewInquiries">내 문의/답변</button><div id="inquiryList"></div></div></section><section id="joinPanel"><h2>대회 참가 신청</h2><input id="nickname" placeholder="닉네임 (2~12자)" maxlength="12"><div id="codeArea" class="hide"><input id="code" placeholder="개인 인증코드"></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:12px 0"><input id="agree" type="checkbox" style="width:auto;margin-top:3px"> <span>무료 시연 대회 참가에 동의합니다. 채팅에서 개인정보를 공유하지 않으며, 운영자가 대회를 초기화하면 참가 기록이 삭제될 수 있음을 확인했습니다.</span></label><button id="joinBtn" style="width:100%">동의하고 참가하기</button><p class="muted">동일한 기기에서는 참가 상태가 유지됩니다.</p></section><section id="rejoinPanel" class="hide"><h2>🎮 다음 대회 참가하기</h2><p class="muted">새 대회가 열렸습니다. 기존 닉네임으로 다시 참가할 수 있습니다.</p><button id="rejoinBtn" type="button" style="width:100%">다음 대회 참가하기</button></section><section id="myPanel" class="hide"><div class="row" style="justify-content:space-between"><h2 style="margin:0">내 참가 정보</h2><button id="exitBtn" type="button" style="background:#334155;padding:8px 13px">나가기</button></div><div class="row"><b id="myName"></b><span id="myState" class="pill"></span></div><p id="myMatch" class="muted"></p><div id="myOutcome" class="myOutcome hide" role="status" aria-live="polite"></div><div id="movePanel" class="hide"><p class="countdown" id="timer"></p><div class="moves"><button data-move="rock">✊<br><small>바위</small></button><button data-move="paper">✋<br><small>보</small></button><button data-move="scissors">✌️<br><small>가위</small></button></div><p class="muted">선택 시간 10초 · 이후 10초 동안 결과 공개를 기다립니다. 미선택 시 바위가 자동 적용됩니다.</p></div></section><section id="cinemaPanel" class="hide"><h2>⚔️ 대결 하이라이트</h2><div id="cinema" class="cinema"></div><div id="cinemaText" class="result" style="text-align:center"></div><div id="personalResult" class="personalResult"></div></section><section id="prizePanel" class="hide"><h2>🎁 우승 상품 수령하기</h2><p class="muted">우승자만 상품을 1개 선택할 수 있습니다. 지급된 코드는 다시 확인할 수 있습니다.</p><button id="saveWinnerLink" type="button">🔖 우승 수령 링크 보관·복사</button><p id="winnerLinkStatus" class="muted"></p><button id="prizeOpen">우승 상품 수령하기</button><div id="prizeChooser" class="hide" style="margin-top:12px"><label>수령방법 선택하기<select id="prizeType" style="width:100%;padding:12px;background:#0d1728;color:white;border-radius:10px"></select></label><p id="prizeError" class="muted"></p><button id="prizeClaim">선택하기 · 상품 수령</button></div><div id="prizeIssued" class="hide" style="margin-top:12px;background:#0d1728;border-radius:12px;padding:14px"><b id="prizeName"></b><p>일련번호: <code id="prizeSerial"></code></p><p>PIN / 스크래치 번호: <code id="prizePin"></code></p><button id="prizeCopy">코드 복사</button><p class="muted">개인정보 보호를 위해 코드를 다른 사람에게 공유하지 마세요.</p></div></section>
@@ -255,7 +286,7 @@ if(s.phase==='playing'&&liveMatches.length){
 
 const visibleMatches=s.matches.filter(m=>m.b);const byeCount=s.matches.length-visibleMatches.length;$('roundLabel').textContent=s.round?`${s.roundType} · ${visibleMatches.length}경기${byeCount?' · '+byeCount+'명 자동 진출':''}`:'대진 추첨 대기';$('matches').innerHTML=visibleMatches.length?visibleMatches.map((m,i)=>{const flip=me?.id===m.b?.id;const left=flip?m.b:m.a,right=flip?m.a:m.b;const leftSubmitted=flip?m.submittedB:m.submittedA,rightSubmitted=flip?m.submittedA:m.submittedB;const leftMove=flip?m.bmove:m.amove,rightMove=flip?m.amove:m.bmove;return `<div class="match ${m.a?.id===me?.id||m.b?.id===me?.id?'mine':''}"><div class="row" style="justify-content:space-between"><b>${s.roundType==='예선'?`예선 ${i+1}차전`:matchTitle(visibleMatches.length,i)}</b><span class="pill">${m.phase==='done'?'종료':m.phase==='active'?'🔴 LIVE':'대기'}</span></div><div class="grid" style="margin-top:8px"><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'나':'PLAYER 1'}</small>${esc(left?.name||'-')} ${m.phase==='active'?(leftSubmitted?'✓':'…'):''}</div><div><small class="matchRole">${m.a?.id===me?.id||m.b?.id===me?.id?'대결 상대':'PLAYER 2'}</small>${esc(right?.name||'부전승')} ${m.phase==='active'?(rightSubmitted?'✓':'…'):''}</div></div>${m.phase==='done'?`<p class="winner">승자: ${esc((m.winner===m.a?.id?m.a:m.b)?.name||m.a?.name)}</p>`:''}${m.phase==='done'&&m.b?`<p class="muted">${hands[leftMove]||'미선택'} vs ${hands[rightMove]||'미선택'}</p>`:''}</div>`}).join(''):'<p class="muted">대회가 시작되면 대진표가 표시됩니다.</p>';
 
-const bracketStages=[...(s.history||[]),...(s.matches?.length?[{round:s.round,matches:s.matches}]:[])];
+const bracketStages=[...(s.history||[]),...(s.phase!=='finished'&&s.matches?.length?[{round:s.round,matches:s.matches}]:[])];
 const stageName=x=>stageNameFor(x.matches,x.roundType);
 $('confirmedBracket').innerHTML=bracketStages.length?bracketStages.map(x=>`<div class="stageCol"><h3>${stageName(x)} <small class="muted">${x.matches.filter(m=>m.b&&m.phase==='done').length}/${x.matches.filter(m=>m.b).length}경기 완료</small></h3><div class="bracketMatches">${x.matches.filter(m=>m.b).map((m,i)=>{const done=m.phase==='done';const winner=done?(m.winner===m.a?.id?m.a:m.b):null;const loser=done?(m.winner===m.a?.id?m.b:m.a):null;return `<div class="bracketRow"><div class="bracketMatchLine"><span class="bracketMatchNo">${stageName(x)==='예선'?`예선 ${i+1}차전`:matchTitle(x.matches.filter(m=>m.b).length,i)}</span><span class="${done&&winner?.id===m.a?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.a?.name||'-')}</span><span class="bracketVs">vs</span><span class="${done&&winner?.id===m.b?.id?'bracketWinner':done?'bracketLoser':''}">${esc(m.b?.name||'부전승')}</span></div><div class="bracketResult ${done?'bracketResultDone':''}">${done?`<span>✓ 진출</span> <strong>${esc(winner?.name||'-')}</strong>`:m.phase==='active'?'🔴 경기 진행 중':'경기 대기'}</div></div>`}).join('')}${x.matches.some(m=>!m.b)?`<div class="muted" style="font-size:11px;margin-top:8px">${x.matches.filter(m=>!m.b).length}명 자동 진출 (부전승)</div>`:''}</div></div>`).join(''):'<p class="muted">대진 추첨 후 표시됩니다.</p>';
 $('chatRoomStatus').textContent=s.chatEnabled?'🟢 채팅방이 운영중입니다.':'🔴 현재 채팅방이 중단되었습니다.';$('chatRoomStatus').classList.toggle('stopped',!s.chatEnabled);$('chatInput').placeholder=s.chatEnabled?'메시지 (80자 이내)':'채팅이 중단되었습니다';$('chatBtn').disabled=!me||!s.chatEnabled;$('chatInput').disabled=!me||!s.chatEnabled;const box=$('chat'),nearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<50;box.innerHTML=(me?s.chat:[]).map(x=>`<div><b>${esc(x.name)}:</b> ${esc(x.message)}</div>`).join('');if(nearBottom)box.scrollTop=box.scrollHeight;
