@@ -373,8 +373,8 @@ if(b.action==='admin'){if(!authorized(req))return reply(401,{error:'로그인이
  }else if(b.cmd==='blockPlayer'){const target=players.get(String(b.playerId||''));if(!target?.deviceHash)throw Error('차단할 참가자 기기 정보가 없습니다');const days=Number(b.days);if(![7,30,0].includes(days))throw Error('차단 기간 오류');await dbQuery(`insert into rps_device_blocks(device_hash,reason,expires_at) values($1,$2,$3) on conflict(device_hash) do update set reason=$2,expires_at=$3`,[target.deviceHash,String(b.reason||'운영 규칙 위반').slice(0,100),days?new Date(Date.now()+days*86400000):null]);if(t.phase==='lobby'){players.delete(target.id);for(const [tok,pid] of tokens)if(pid===target.id)tokens.delete(tok)}
 }else if(b.cmd==='unblock'){await dbQuery('delete from rps_device_blocks where device_hash=$1',[String(b.hash||'')]);
 }else if(b.cmd==='replyInquiry'){await dbQuery('update rps_inquiries set reply=$2 where id=$1',[String(b.id||''),String(b.reply||'').slice(0,1000)]);
-}else if(b.cmd==='notifyRegistration'){const result=await sendPush('✊ 가위바위보 LIVE','새로운 대회 참가 신청이 시작됐습니다!',currentJoin(),dbQuery);return reply(200,{ok:true,...result});
-}else if(b.cmd==='notifyStarting'){const result=await sendPush('⏰ 가위바위보 LIVE','대회 시작 10분 전입니다. 참가 화면으로 이동하세요.',currentJoin(),dbQuery);return reply(200,{ok:true,...result});
+}else if(b.cmd==='notifyRegistration'){const result=await sendPush('✊ 가위바위보 LIVE','새로운 대회 참가 신청이 시작됐습니다!','/tournament',dbQuery);return reply(200,{ok:true,...result});
+}else if(b.cmd==='notifyStarting'){const result=await sendPush('⏰ 가위바위보 LIVE','대회 시작 10분 전입니다. 참가 화면으로 이동하세요.','/tournament',dbQuery);return reply(200,{ok:true,...result});
 }else if(b.cmd==='setEventMeta'){
  if(dailyRow||campaign)throw Error('DAILY 및 기업 이벤트 일정은 해당 관리 화면에서 설정하세요');
  const edition=b.edition===''||b.edition===null||b.edition===undefined?null:Number(b.edition);
@@ -382,7 +382,7 @@ if(b.action==='admin'){if(!authorized(req))return reply(401,{error:'로그인이
  const title=String(b.title||'').trim();
  if(title.length>80)throw Error('대회명은 80자 이내로 입력하세요');
  const scheduledAt=b.scheduledAt?String(b.scheduledAt):null;
- if(scheduledAt&&(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(scheduledAt)||!Number.isFinite(Date.parse(scheduledAt+'+09:00'))))throw Error('개최 날짜와 시간을 확인하세요');
+ if(scheduledAt&&(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(scheduledAt)||!Number.isFinite(Date.parse(scheduledAt+'+09:00'))))throw Error('개최 날짜와 시간을 확인하세요');
  if(b.registrationOpen===true&&t.phase!=='lobby')throw Error('참가 모집은 대기 중인 대회에서만 설정할 수 있습니다');
  eventMeta.edition=edition;eventMeta.title=title;eventMeta.scheduledAt=scheduledAt;
  eventMeta.registrationOpen=b.registrationOpen===true;
