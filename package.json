@@ -1,6 +1,6 @@
 {
   "name": "rps-live-mobile",
-  "version": "0.7.31",
+  "version": "0.13.0",
   "private": true,
   "scripts": {
     "start": "node server.cjs"
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "pg": "^8.13.3",
+    "qrcode": "1.5.4",
     "web-push": "^3.6.7"
   }
 }
