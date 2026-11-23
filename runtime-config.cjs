@@ -33,7 +33,7 @@ function configuration(env=process.env){
     insist(database.hostname===env.STAGING_DB_HOST.toLowerCase()&&name===env.STAGING_DB_NAME&&role===(env.STAGING_DB_LOGIN||env.STAGING_DB_ROLE),
       'DATABASE_URL이 스테이징 허용 대상과 일치하지 않습니다');
   }
-  insist((mode!=='staging'&&!env.DAILY_SCHEDULER_TOKEN)||env.DAILY_SCHEDULER_TOKEN?.length>=32,'DAILY_SCHEDULER_TOKEN은 32자 이상이어야 합니다');
+  insist(!env.DAILY_SCHEDULER_TOKEN||env.DAILY_SCHEDULER_TOKEN.length>=32,'DAILY_SCHEDULER_TOKEN은 32자 이상이어야 합니다');
   insist(env.DAILY_PUSH_DELIVERY!=='enabled'||(env.VAPID_PUBLIC_KEY&&env.VAPID_PRIVATE_KEY),'푸시 활성화에는 VAPID 키 쌍이 필요합니다');
   insist(Boolean(env.VAPID_PUBLIC_KEY)===Boolean(env.VAPID_PRIVATE_KEY),'VAPID 키 쌍을 함께 설정하세요');
   if(mode==='staging'&&env.DAILY_PUSH_DELIVERY==='enabled')insist(env.STAGING_ALLOW_PUSH==='enabled','스테이징 푸시를 명시적으로 활성화하세요');
