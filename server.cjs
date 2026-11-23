@@ -1,20 +1,12 @@
+const {configuration}=require('./runtime-config.cjs');
+let configurationState;
+try{configurationState=configuration()}
+catch(error){console.error('Startup configuration:',error.configuration?error.message:'연결 환경변수 형식을 확인하세요');process.exit(1)}
 const tournament=require('./tournament.cjs');
-const {isAdminSession,createAdminSession,clearAdminSession}=require('./admin-session.cjs');
-const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
+const {authorized:adminAuthorized,loginResult,createAdminSession,clearAdminSession}=require('./admin-session.cjs');
+const {observe,metrics}=require('./telemetry.cjs');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const PORT=process.env.PORT||3000;
-// Public test deployment: protect administration with HTTP Basic Auth over HTTPS.
-const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD;
-if(!ADMIN_PASSWORD || ADMIN_PASSWORD.length<12){console.error('ADMIN_PASSWORD 환경변수를 12자 이상으로 설정해야 합니다.');process.exit(1)}
-const ADMIN_USER=process.env.ADMIN_USER||'admin';
-function adminAuthorized(req){if(isAdminSession(req))return true;
- const auth=req.headers.authorization||'';
- if(!auth.startsWith('Basic '))return false;
- let decoded='';try{decoded=Buffer.from(auth.slice(6),'base64').toString('utf8')}catch{return false}
- const idx=decoded.indexOf(':');if(idx<0)return false;
- const user=decoded.slice(0,idx),pass=decoded.slice(idx+1);
- const a=Buffer.from(user),b=Buffer.from(ADMIN_USER),c=Buffer.from(pass),d=Buffer.from(ADMIN_PASSWORD);
- return a.length===b.length&&c.length===d.length&&crypto.timingSafeEqual(a,b)&&crypto.timingSafeEqual(c,d)
-}
 function denyAdmin(res){res.writeHead(401,{'WWW-Authenticate':'Basic realm="RPS LIVE Admin"','Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'});res.end('관리자 인증이 필요합니다')}
 
 const players=new Map(), sessions=new Map(), clients=new Set();
@@ -29,15 +21,52 @@ function broadcast(){const s='data: '+JSON.stringify(view())+'\n\n';for(const c 
 function getPlayer(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');return players.get(sessions.get(token))}
 function finalize(){if(game.phase!=='choosing')return;game.phase='result';let survivors=0;for(const p of players.values()){if(!p.alive)continue;if(!p.move){p.alive=false;continue}if(p.move===game.hostMove){survivors++;continue}const win=(p.move==='rock'&&game.hostMove==='scissors')||(p.move==='scissors'&&game.hostMove==='paper')||(p.move==='paper'&&game.hostMove==='rock');p.alive=win;if(win)survivors++}game.announcement=`${game.round}라운드 종료! 생존자 ${survivors}명`;if(survivors===1){game.phase='finished';game.winner=[...players.values()].find(p=>p.alive).id;game.announcement=`우승자 ${game.winner}! 축하합니다!`}else if(survivors===0){game.phase='finished';game.announcement='생존자가 없어요. 우승자 없이 종료되었습니다.'}broadcast()}
 const limits=new Map();function rate(key,ms){const now=Date.now();if(now-(limits.get(key)||0)<ms)return false;limits.set(key,now);return true}
-const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://localhost');
-if(u.pathname==='/admin/login'&&req.method==='POST'){let body='';req.on('data',c=>{body+=c;if(body.length>2048)req.destroy()});req.on('end',()=>{try{const b=JSON.parse(body);const a=Buffer.from(String(b.user||'')),x=Buffer.from(ADMIN_USER),c=Buffer.from(String(b.password||'')),d=Buffer.from(ADMIN_PASSWORD);if(a.length===x.length&&c.length===d.length&&crypto.timingSafeEqual(a,x)&&crypto.timingSafeEqual(c,d)){createAdminSession(res);return send(res,200,{ok:true})}return send(res,401,{error:'관리자 로그인 정보가 올바르지 않습니다'})}catch{return send(res,400,{error:'잘못된 요청'})}});return}
+const server=http.createServer((req,res)=>{
+let u;
+try{u=new URL(req.url,'http://localhost')}catch{return send(res,400,{error:'잘못된 요청입니다'})}
+res.setHeader('X-Content-Type-Options','nosniff');
+res.setHeader('X-Frame-Options','DENY');
+res.setHeader('Referrer-Policy','no-referrer');
+observe(u.pathname,req.method,res);
+if(!['GET','HEAD','OPTIONS'].includes(req.method)){
+  const expected=configurationState.origin||'http://'+req.headers.host;
+  if(req.headers['sec-fetch-site']==='cross-site'||(req.headers.origin&&req.headers.origin!==expected))
+    return send(res,403,{error:'외부 출처의 요청을 허용하지 않습니다'});
+}
+if(req.method==='GET'&&u.pathname==='/health'){
+  return tournament.databaseHealthy().then(ok=>send(res,ok?200:503,{ok,database:ok?'up':'down'}));
+}
+if(req.method==='GET'&&u.pathname==='/api/v1/admin/operations'){
+  if(!adminAuthorized(req))return send(res,401,{error:'관리자 인증이 필요합니다'});
+  return tournament.databaseHealthy().then(ok=>send(res,ok?200:503,{
+    version:'0.13.0',database:ok?'up':'down',uptimeSeconds:Math.floor(process.uptime()),metrics:metrics()
+  }));
+}
+if(u.pathname==='/admin/login'&&req.method==='POST'){
+  const chunks=[];let received=0;
+  req.on('data',chunk=>{
+    received+=chunk.length;
+    if(received<=2048)chunks.push(chunk);
+    else if(!res.headersSent)send(res,413,{error:'요청 크기가 너무 큽니다'});
+  });
+  req.on('end',()=>{
+    if(received>2048)return;
+    let body;
+    try{body=JSON.parse(Buffer.concat(chunks))}catch{return send(res,400,{error:'잘못된 요청입니다'})}
+    const status=loginResult(req,body?.user,body?.password);
+    if(status===429){res.setHeader('Retry-After','600');return send(res,429,{error:'로그인 시도 한도를 초과했습니다'})}
+    if(status!==200)return send(res,401,{error:'관리자 로그인 정보가 올바르지 않습니다'});
+    createAdminSession(res);
+    return send(res,200,{ok:true});
+  });
+  return;
+}
 if(u.pathname==='/admin/logout'&&req.method==='POST'){clearAdminSession(res);return send(res,200,{ok:true})}
 if(u.pathname==='/admin/session'&&req.method==='GET')return send(res,200,{loggedIn:adminAuthorized(req)});
 if(tournament.handle(req,res,u))return;if(req.method==='GET'&&u.pathname==='/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});res.write('data: '+JSON.stringify(view())+'\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return}
 if(req.method==='GET'&&['/host.jpg','/player.jpg'].includes(u.pathname)){res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});res.end(fs.readFileSync(path.join(__dirname,u.pathname.slice(1))));return}
 if(u.pathname==='/admin'&&!adminAuthorized(req)){res.writeHead(302,{Location:'/admin-login', 'Cache-Control':'no-store'});res.end();return}
 if(u.pathname==='/admin-login'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(fs.readFileSync(path.join(__dirname,'admin-login.html')));return}
-if(req.method==='GET'&&u.pathname==='/health'){return send(res,200,{ok:true})}
 if(req.method==='GET'&&(u.pathname==='/'||u.pathname==='/admin')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(fs.readFileSync(path.join(__dirname,u.pathname==='/admin'?'admin.html':'index.html')));return}
 if(req.method!=='POST'||u.pathname!=='/api')return send(res,404,{error:'찾을 수 없습니다'});let raw='';req.on('data',c=>{raw+=c;if(raw.length>4096)req.destroy()});req.on('end',()=>{let b;try{b=JSON.parse(raw)}catch{return send(res,400,{error:'잘못된 요청'})}const p=getPlayer(req);if(b.action==='join'){if(game.phase!=='lobby')return send(res,409,{error:'현재 참가 신청이 마감됐어요'});if(players.size>=200)return send(res,409,{error:'참가 정원이 찼어요'});const id=display(),token=rid();players.set(id,{id,alive:true,move:null});sessions.set(token,id);broadcast();return send(res,200,{token,id})}
 if(b.action==='resume')return p?send(res,200,{id:p.id,alive:p.alive}):send(res,401,{error:'다시 입장해주세요'});
@@ -45,4 +74,17 @@ if(b.action==='move'){if(!p||!p.alive)return send(res,403,{error:'참가할 수 
 if(b.action==='chat'){if(!p)return send(res,401,{error:'먼저 입장해주세요'});if(!chatEnabled||muted.has(p.id))return send(res,403,{error:'현재 채팅을 사용할 수 없어요'});const msg=String(b.message||'').trim();if(!msg||msg.length>80||bad.test(msg)||/(?:[가-힣A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/.test(msg))return send(res,400,{error:'개인정보·링크 또는 긴 메시지는 보낼 수 없어요'});if(!rate('chat:'+p.id,2500))return send(res,429,{error:'잠시 후 다시 보내주세요'});if(messages.length>=150)messages.shift();messages.push({id:rid(),who:p.id,message:msg,time:Date.now()});broadcast();return send(res,200,{ok:true})}
 if(b.action==='admin'){if(!adminAuthorized(req))return denyAdmin(res);if(b.cmd==='setDuration'){if(game.phase==='choosing')return send(res,409,{error:'진행 중에는 시간을 변경할 수 없습니다'});const duration=Number(b.duration);if(!Number.isInteger(duration)||duration<10||duration>120)return send(res,400,{error:'대결 시간은 10~120초입니다'});game.duration=duration;}else if(b.cmd==='start'){if(game.phase!=='lobby'&&game.phase!=='result')return send(res,409,{error:'지금 시작할 수 없습니다'});if(game.phase==='lobby'&&players.size<2)return send(res,409,{error:'2명 이상 필요합니다'});if(game.phase==='result'&&![...players.values()].some(x=>x.alive))return send(res,409,{error:'생존자가 없습니다'});if(!['rock','paper','scissors'].includes(b.move))return send(res,400,{error:'가위·바위·보를 선택해주세요'});game.phase='choosing';game.round++;game.hostMove=b.move;game.deadline=Date.now()+game.duration*1000;game.announcement=`${game.round}라운드! ${game.duration}초 안에 선택하세요`;for(const x of players.values())x.move=null;const round=game.round,gen=gameGeneration;setTimeout(()=>{if(gameGeneration===gen&&game.round===round)finalize()},game.duration*1000+100)}else if(b.cmd==='close'){finalize()}else if(b.cmd==='reset'){gameGeneration++;announcements=[];announcementSeq=0;players.clear();sessions.clear();messages=[];muted.clear();chatEnabled=true;game={phase:'lobby',round:0,deadline:0,hostMove:null,winner:null,announcement:'새 게임이 열렸어요!',duration:game.duration};}else if(b.cmd==='addNotice'){const t=String(b.text||'').trim();if(!t||t.length>180)return send(res,400,{error:'공지는 1~180자로 작성하세요'});if(announcements.length>=3)return send(res,409,{error:'공지는 최대 3개입니다. 기존 공지를 삭제하세요'});announcements.push({id:rid(),number:++announcementSeq,text:t,time:Date.now()})}else if(b.cmd==='deleteNotice'){announcements=announcements.filter(x=>x.id!==b.noticeId)}else if(b.cmd==='clearNotices'){announcements=[];announcementSeq=0}else if(b.cmd==='delete'){messages=messages.filter(m=>m.id!==b.messageId)}else if(b.cmd==='clearChat'){messages=[]}else if(b.cmd==='toggleChat'){chatEnabled=!chatEnabled}else if(b.cmd==='mute'){if(!players.has(b.playerId))return send(res,404,{error:'참가자를 찾을 수 없습니다'});muted.add(b.playerId)}else if(b.cmd==='unmute'){muted.delete(b.playerId)}else return send(res,400,{error:'잘못된 관리자 명령'});broadcast();return send(res,200,{ok:true})}send(res,400,{error:'알 수 없는 요청'})});});
 const heartbeat=setInterval(()=>{for(const c of clients){try{c.write(': ping\n\n')}catch{clients.delete(c)}}},25000);heartbeat.unref();
-server.listen(PORT,'0.0.0.0',()=>console.log(`RPS LIVE public test listening on ${PORT}`));
+async function start(){
+  try{
+    await tournament.initialize();
+    server.listen(PORT,'0.0.0.0',()=>{
+      tournament.startBackground();
+      console.log('LIVE Challenge v0.13.0 ready:',configurationState.mode);
+    });
+  }catch(error){
+    console.error('Startup database:',error.configuration?error.message:(error.code||error.name)+' 연결과 마이그레이션을 확인하세요');
+    await tournament.close().catch(()=>{});
+    process.exitCode=1;
+  }
+}
+start();
